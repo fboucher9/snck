@@ -1,0 +1,4 @@
+# snck
+
+Lightweight shell.
+
