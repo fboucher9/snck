@@ -17,7 +17,11 @@ Description:
 /* Module */
 #include "snck_main.h"
 
-static char * p_home = 0;
+static char a_home[1024u];
+
+static char a_user[1024u];
+
+static char a_host[1024u];
 
 static char * g_argv[1024u];
 
@@ -35,7 +39,7 @@ snck_builtin_cd(void)
     }
     else
     {
-        chdir(p_home);
+        chdir(a_home);
     }
 
     b_result = 1;
@@ -183,13 +187,13 @@ snck_build_prompt(
 
     getcwd(a_pwd, sizeof(a_pwd));
 
-    if (0 == strncmp(a_pwd, p_home, strlen(p_home)))
+    if (0 == strncmp(a_pwd, a_home, strlen(a_home)))
     {
-        sprintf(a_prompt, "snck:~%s$ ", a_pwd + strlen(p_home));
+        sprintf(a_prompt, "%s@%s:~%s$ ", a_user, a_host, a_pwd + strlen(a_home));
     }
     else
     {
-        sprintf(a_prompt, "snck:%s$ ", a_pwd);
+        sprintf(a_prompt, "%s@%s:%s$ ", a_user, a_host, a_pwd);
     }
 }
 
@@ -334,10 +338,52 @@ snck_main(
     signal(SIGINT, SIG_IGN);
     /* signal(SIGTSTP, SIG_IGN); */
 
-    p_home = getenv("HOME");
-    if (!p_home)
     {
-        p_home = "/home/fboucher";
+        uid_t id;
+
+        struct passwd * pw;
+
+        char * p_home;
+
+        a_user[0u] = '\000';
+
+        a_home[0u] = '\000';
+
+        id = getuid();
+
+        pw = getpwuid(id);
+
+        if (pw)
+        {
+            strcpy(a_user, pw->pw_name);
+
+            strcpy(a_home, pw->pw_dir);
+        }
+        else
+        {
+            strcpy(a_user, "snck");
+
+            p_home = getenv("HOME");
+
+            if (p_home)
+            {
+                strcpy(a_home, p_home);
+            }
+            else
+            {
+                sprintf(a_home, "/home/%s", a_user);
+            }
+        }
+    }
+
+    a_host[0] = '\000';
+
+    if (0 == gethostname(a_host, sizeof(a_host)))
+    {
+    }
+    else
+    {
+        strcpy(a_host, "snck");
     }
 
     if (snck_read_file())

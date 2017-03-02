@@ -34,6 +34,12 @@ Description:
 #include <sys/wait.h>
 
 /* */
+#include <sys/types.h>
+
+/* */
+#include <pwd.h>
+
+/* */
 #include "linenoise.h"
 
 /* end-of-file: snck_os.h */
