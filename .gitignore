@@ -1,2 +1,3 @@
 snck
-snck.exe
+*.exe
+*.sh
