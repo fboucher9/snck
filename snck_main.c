@@ -215,6 +215,127 @@ snck_build_prompt(
     }
 }
 
+#if defined(SNCK_FEATURE_LINENOISE)
+
+static
+void
+snck_completion(
+    char const * buf,
+    size_t pos,
+    linenoiseCompletions * lc)
+{
+    /* quick tokenize of current line */
+    /* find the word under the cursor */
+    /* locate words before and words after */
+    /* complete entire line and replace word with other ... */
+
+    int pos0;
+
+    if (pos > 0)
+    {
+        pos0 = (int)(pos - 1);
+
+        while (pos0 >= 0)
+        {
+            if (buf[pos0] == ' ')
+            {
+                break;
+            }
+
+            pos0 --;
+        }
+
+        pos0 ++;
+    }
+    else
+    {
+        pos0 = 0;
+    }
+
+    /* Find the directory name */
+
+    /* From beginning of word to last slash */
+
+    int pos1;
+
+    if (pos > 0)
+    {
+        pos1 = (int)(pos - 1);
+
+        while (pos1 >= pos0)
+        {
+            if (buf[pos1] == '/')
+            {
+                break;
+            }
+
+            pos1 --;
+        }
+
+        pos1++;
+    }
+    else
+    {
+        pos1 = 0;
+    }
+
+    static char a_folder[1024u];
+
+    a_folder[0u] = '\000';
+
+    if (pos1 > pos0)
+    {
+        memcpy(a_folder, buf + pos0, pos1 - pos0);
+
+        a_folder[pos1 - pos0] = '\000';
+    }
+    else
+    {
+        strcpy(a_folder, ".");
+    }
+
+    DIR * d;
+
+    d = opendir(a_folder);
+    if (d)
+    {
+        while (1)
+        {
+            struct dirent * e;
+
+            e = readdir(d);
+            if (e)
+            {
+                if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
+                {
+                }
+                else if (0 == strncmp(e->d_name, buf + pos1, pos - pos1))
+                {
+                    static char suggest[1024u];
+
+                    if (pos1 > 0)
+                    {
+                        sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
+                    }
+                    else
+                    {
+                        sprintf(suggest, "%s", e->d_name);
+                    }
+
+                    linenoiseAddCompletion(lc, suggest);
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        closedir(d);
+    }
+} /* snck_completion */
+
+#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
 static
 char
 snck_read_line(
@@ -232,6 +353,8 @@ snck_read_line(
 #if defined(SNCK_FEATURE_LINENOISE)
 
     errno = 0;
+
+    linenoiseSetCompletionCallback(snck_completion);
 
     p_line = linenoise(a_prompt);
 

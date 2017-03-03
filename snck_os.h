@@ -27,16 +27,19 @@ Description:
 /* */
 #include <unistd.h>
 
-/* */
+/* errno */
 #include <errno.h>
 
-/* */
+/* waitpid() */
 #include <sys/wait.h>
 
-/* */
+/* struct passwd */
 #include <sys/types.h>
 
-/* */
+/* getpwuid() */
 #include <pwd.h>
+
+/* opendir() */
+#include <dirent.h>
 
 /* end-of-file: snck_os.h */
