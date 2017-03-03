@@ -527,13 +527,20 @@ snck_main(
         strcpy(a_host, "snck");
     }
 
-    if (snck_read_file())
+    if ((i_argc > 2) && (0 == strcmp(p_argv[1u], "-c")))
     {
-        i_exit_status = 0;
+        snck_process_line((char *)(p_argv[2u]));
     }
     else
     {
-        i_exit_status = 1;
+        if (snck_read_file())
+        {
+            i_exit_status = 0;
+        }
+        else
+        {
+            i_exit_status = 1;
+        }
     }
 
     return i_exit_status;
