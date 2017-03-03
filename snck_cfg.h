@@ -18,6 +18,8 @@ Description:
 #define INC_SNCK_CFG_H
 
 /* Use of linenoise library for input */
+#if defined(SNCK_HAVE_LINENOISE)
 #define SNCK_FEATURE_LINENOISE
+#endif /* #if defined(SNCK_HAVE_LINENOISE) */
 
 /* end-of-file: snck_cfg.h */

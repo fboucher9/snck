@@ -39,7 +39,4 @@ Description:
 /* */
 #include <pwd.h>
 
-/* */
-#include "linenoise.h"
-
 /* end-of-file: snck_os.h */

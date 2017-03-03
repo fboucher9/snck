@@ -12,21 +12,11 @@ ifndef SNCK_CC
 SNCK_CC = $(CC)
 endif
 
-ifndef SNCK_LINENOISE_CFLAGS
-SNCK_LINENOISE_CFLAGS =
-endif
-
-ifndef SNCK_LINENOISE_LIBS
-SNCK_LINENOISE_LIBS = -llinenoise
-endif
-
 SNCK_SRCS = \
     $(SNCK_SRC_PATH)/snck_main.c \
     $(SNCK_SRC_PATH)/snck_os.c
 
 SNCK_LIBS =
-
-SNCK_LIBS += $(SNCK_LINENOISE_LIBS)
 
 SNCK_CFLAGS =
 
@@ -36,7 +26,8 @@ else
 SNCK_CFLAGS += -s -O2 -Os
 endif
 
-SNCK_CFLAGS += $(SNCK_LINENOISE_CFLAGS)
+SNCK_CFLAGS += -DSNCK_HAVE_LINENOISE
+SNCK_LIBS += -llinenoise
 
 .PHONY : all
 all : $(SNCK_DST_PATH)/snck

@@ -17,6 +17,13 @@ Description:
 /* Module */
 #include "snck_main.h"
 
+/* */
+#if defined(SNCK_FEATURE_LINENOISE)
+#include <linenoise.h>
+#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
+static char a_line[65536u];
+
 static char a_home[1024u];
 
 static char a_user[1024u];
@@ -56,6 +63,15 @@ snck_fork_and_exec(void)
 
     pid_t iChildProcess;
 
+    /* Create a command line for sh */
+    g_argv[0u] = "/bin/sh";
+
+    g_argv[1u] = "-c";
+
+    g_argv[2u] = a_line;
+
+    g_argv[3u] = NULL;
+
     /* execute the command */
     iChildProcess = fork();
     if (0 == iChildProcess)
@@ -86,7 +102,7 @@ snck_fork_and_exec(void)
 
     return b_result;
 
-}
+} /* snck_fork_and_exec() */
 
 static
 char
@@ -154,6 +170,8 @@ snck_process_line(
     /* [function] */
     /* wo[func][func]rd */
     /* wo[sp]rd */
+
+    strcpy(a_line, p_line);
 
     b_result = snck_tokenize_line(p_line);
 
