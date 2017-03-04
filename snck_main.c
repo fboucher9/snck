@@ -55,6 +55,112 @@ snck_builtin_cd(void)
 
 } /* snck_builtin_cd() */
 
+extern char ** environ;
+
+static
+char
+snck_builtin_set(void)
+{
+    char b_result;
+
+    int i_result;
+
+    if (g_argc > 1u)
+    {
+        char * p_name;
+
+        p_name = g_argv[1u];
+
+        if (g_argc > 2u)
+        {
+            char * p_value;
+
+            p_value = g_argv[2u];
+
+            i_result = setenv(p_name, p_value, 1);
+
+            (void)(i_result);
+        }
+        else
+        {
+            /* */
+            char * p_value;
+
+            p_value = getenv(p_name);
+
+            if (p_value)
+            {
+                fprintf(stdout, "%s\n", p_value);
+            }
+            else
+            {
+                fprintf(stderr, "not set\n");
+            }
+        }
+    }
+    else
+    {
+        /* dump all vars */
+        int i;
+
+        i = 0;
+
+        while (environ[i])
+        {
+            fprintf(stdout, "%s\n", environ[i]);
+
+            i++;
+        }
+    }
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_builtin_set() */
+
+static
+char
+snck_builtin_unset(void)
+{
+    char b_result;
+
+    int i_result;
+
+    if (g_argc > 1u)
+    {
+        char * p_name;
+
+        p_name = g_argv[1u];
+
+        i_result = unsetenv(p_name);
+
+        (void)(i_result);
+    }
+    else
+    {
+    }
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_builtin_unset() */
+
+static
+char
+snck_builtin_sexe(void)
+{
+    char b_result;
+
+    execvp(g_argv[1u], g_argv + 1);
+
+    b_result = 0;
+
+    return b_result;
+
+} /* snck_builtin_sexe() */
+
 static
 char
 snck_fork_and_exec(void)
@@ -95,7 +201,14 @@ snck_fork_and_exec(void)
         }
         while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
 
-        fprintf(stderr, "snck: error code is %d\n", WEXITSTATUS(resultStatus));
+        int iExitCode;
+
+        iExitCode = WEXITSTATUS(resultStatus);
+
+        if (iExitCode)
+        {
+            fprintf(stderr, "snck: error code is %d\n", iExitCode);
+        }
 
         b_result = 1;
     }
@@ -110,9 +223,26 @@ snck_execute_child(void)
 {
     char b_result;
 
-    if (0 == strcmp(g_argv[0u], "cd"))
+    if ('#' == g_argv[0u][0u])
+    {
+        /* This is a comment line */
+        b_result = 1;
+    }
+    else if (0 == strcmp(g_argv[0u], "cd"))
     {
         b_result = snck_builtin_cd();
+    }
+    else if (0 == strcmp(g_argv[0u], "set"))
+    {
+        b_result = snck_builtin_set();
+    }
+    else if (0 == strcmp(g_argv[0u], "unset"))
+    {
+        b_result = snck_builtin_unset();
+    }
+    else if (0 == strcmp(g_argv[0u], "sexe"))
+    {
+        b_result = snck_builtin_sexe();
     }
     else
     {
@@ -330,6 +460,7 @@ snck_completion(
                 break;
             }
         }
+
         closedir(d);
     }
 } /* snck_completion */
@@ -450,6 +581,115 @@ snck_read_file(void)
     return b_result;
 }
 
+static
+void
+snck_detect_info(void)
+{
+    char b_found_user;
+
+    char b_found_home;
+
+    char b_found_host;
+
+    a_user[0u] = '\000';
+
+    a_home[0u] = '\000';
+
+    a_host[0u] = '\000';
+
+    b_found_user = 0;
+
+    b_found_home = 0;
+
+    b_found_host = 0;
+
+    if (!b_found_user)
+    {
+        char * p_user;
+
+        p_user = getenv("USER");
+
+        if (p_user)
+        {
+            strcpy(a_user, p_user);
+
+            b_found_user = 1;
+        }
+    }
+
+    if (!b_found_home)
+    {
+        char * p_home;
+
+        p_home = getenv("HOME");
+
+        if (p_home)
+        {
+            strcpy(a_home, p_home);
+
+            b_found_home = 1;
+        }
+    }
+
+    if (!b_found_user || !b_found_home)
+    {
+        uid_t id;
+
+        struct passwd * pw;
+
+        id = getuid();
+
+        pw = getpwuid(id);
+
+        if (pw)
+        {
+            if (!b_found_user)
+            {
+                strcpy(a_user, pw->pw_name);
+
+                b_found_user = 1;
+            }
+
+            if (!b_found_home)
+            {
+                strcpy(a_home, pw->pw_dir);
+
+                b_found_home = 1;
+            }
+        }
+    }
+
+    if (!b_found_user)
+    {
+        strcpy(a_user, "snck");
+
+        b_found_user = 1;
+    }
+
+    if (!b_found_home)
+    {
+        sprintf(a_home, "/home/%s", a_user);
+
+        b_found_home = 1;
+    }
+
+    if (!b_found_host)
+    {
+        if (0 == gethostname(a_host, sizeof(a_host)))
+        {
+            b_found_host = 1;
+        }
+    }
+
+    if (!b_found_host)
+    {
+        strcpy(a_host, "snck");
+
+        b_found_host = 1;
+    }
+
+}
+
 static void snck_sigchld(int unused)
 {
     (void)(unused);
@@ -466,73 +706,28 @@ Description:
 int
 snck_main(
     unsigned int i_argc,
-    char const * const * const p_argv)
+    char * * p_argv)
 {
     /* read commands from stdin */
     int i_exit_status;
 
-    (void)(i_argc);
-    (void)(p_argv);
-
-    /* install a SIGCHLD handler */
-    signal(SIGCHLD, snck_sigchld);
-    signal(SIGINT, SIG_IGN);
-    /* signal(SIGTSTP, SIG_IGN); */
-
+    if (i_argc > 1)
     {
-        uid_t id;
+        p_argv[0u] = "/bin/sh";
 
-        struct passwd * pw;
+        execvp(p_argv[0u], p_argv);
 
-        char * p_home;
-
-        a_user[0u] = '\000';
-
-        a_home[0u] = '\000';
-
-        id = getuid();
-
-        pw = getpwuid(id);
-
-        if (pw)
-        {
-            strcpy(a_user, pw->pw_name);
-
-            strcpy(a_home, pw->pw_dir);
-        }
-        else
-        {
-            strcpy(a_user, "snck");
-
-            p_home = getenv("HOME");
-
-            if (p_home)
-            {
-                strcpy(a_home, p_home);
-            }
-            else
-            {
-                sprintf(a_home, "/home/%s", a_user);
-            }
-        }
-    }
-
-    a_host[0] = '\000';
-
-    if (0 == gethostname(a_host, sizeof(a_host)))
-    {
+        i_exit_status = 1;
     }
     else
     {
-        strcpy(a_host, "snck");
-    }
+        /* install a SIGCHLD handler */
+        signal(SIGCHLD, snck_sigchld);
+        signal(SIGINT, SIG_IGN);
+        /* signal(SIGTSTP, SIG_IGN); */
 
-    if ((i_argc > 2) && (0 == strcmp(p_argv[1u], "-c")))
-    {
-        snck_process_line((char *)(p_argv[2u]));
-    }
-    else
-    {
+        snck_detect_info();
+
         if (snck_read_file())
         {
             i_exit_status = 0;
@@ -544,4 +739,7 @@ snck_main(
     }
 
     return i_exit_status;
-}
+
+} /* snck_main() */
+
+/* end-of-file: snck_main.c */

@@ -31,7 +31,7 @@ main(
 {
     return snck_main(
         (unsigned int)(argc),
-        (char const * const *)(argv));
+        (char * *)(argv));
 
 } /* main() */
 

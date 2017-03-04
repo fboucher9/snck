@@ -11,6 +11,6 @@ Description:
 int
 snck_main(
     unsigned int i_argc,
-    char const * const * const p_argv);
+    char * * p_argv);
 
 /* end-of-file: snck_main.h */
