@@ -724,6 +724,7 @@ snck_main(
         /* install a SIGCHLD handler */
         signal(SIGCHLD, snck_sigchld);
         signal(SIGINT, SIG_IGN);
+        signal(SIGHUP, SIG_IGN);
         /* signal(SIGTSTP, SIG_IGN); */
 
         snck_detect_info();
