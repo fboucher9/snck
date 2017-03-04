@@ -22,6 +22,8 @@ Description:
 #include <linenoise.h>
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
+static char a_split[65536u];
+
 static char a_line[65536u];
 
 static char a_home[1024u];
@@ -29,6 +31,12 @@ static char a_home[1024u];
 static char a_user[1024u];
 
 static char a_host[1024u];
+
+static char a_pwd_old[1024u];
+
+static char a_pwd[1024u];
+
+static char a_prompt[4096u];
 
 static char * g_argv[1024u];
 
@@ -40,16 +48,67 @@ snck_builtin_cd(void)
 {
     char b_result;
 
-    if (g_argc > 1u)
+    int i_result;
+
+    char * p_path;
+
+    if (g_argc > 0u)
     {
-        chdir(g_argv[1u]);
+        if (0 == strcmp(g_argv[0u], "-"))
+        {
+            p_path = a_pwd_old;
+        }
+        else
+        {
+            if ('~' == g_argv[0u][0u])
+            {
+                sprintf(a_line, "%s%s", a_home, g_argv[0u] + 1);
+
+                p_path = a_line;
+            }
+            else
+            {
+                p_path = g_argv[0u];
+            }
+        }
     }
     else
     {
-        chdir(a_home);
+        p_path = a_home;
     }
 
-    b_result = 1;
+    if (0 != strcmp(p_path, "."))
+    {
+        i_result = chdir(p_path);
+
+        if (0 == i_result)
+        {
+            strcpy(a_pwd_old, a_pwd);
+
+            if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
+            {
+                if (0 == setenv("PWD", a_pwd, 1))
+                {
+                }
+                else
+                {
+                }
+            }
+
+            b_result = 1;
+        }
+        else
+        {
+            fprintf(stderr, "failure to change directory\n");
+
+            b_result = 1;
+        }
+    }
+    else
+    {
+        /* Nothing changed */
+        b_result = 1;
+    }
 
     return b_result;
 
@@ -65,17 +124,17 @@ snck_builtin_set(void)
 
     int i_result;
 
-    if (g_argc > 1u)
+    if (g_argc > 0u)
     {
         char * p_name;
 
-        p_name = g_argv[1u];
+        p_name = g_argv[0u];
 
-        if (g_argc > 2u)
+        if (g_argc > 1u)
         {
             char * p_value;
 
-            p_value = g_argv[2u];
+            p_value = g_argv[1u];
 
             i_result = setenv(p_name, p_value, 1);
 
@@ -127,11 +186,11 @@ snck_builtin_unset(void)
 
     int i_result;
 
-    if (g_argc > 1u)
+    if (g_argc > 0u)
     {
         char * p_name;
 
-        p_name = g_argv[1u];
+        p_name = g_argv[0u];
 
         i_result = unsetenv(p_name);
 
@@ -153,9 +212,20 @@ snck_builtin_sexe(void)
 {
     char b_result;
 
-    execvp(g_argv[1u], g_argv + 1);
+    if (g_argc > 0u)
+    {
+        execvp(g_argv[0u], g_argv);
 
-    b_result = 0;
+        fprintf(stderr, "unable to sexecute\n");
+
+        b_result = 1;
+    }
+    else
+    {
+        fprintf(stderr, "missing argument\n");
+
+        b_result = 1;
+    }
 
     return b_result;
 
@@ -169,14 +239,27 @@ snck_fork_and_exec(void)
 
     pid_t iChildProcess;
 
-    /* Create a command line for sh */
     g_argv[0u] = "/bin/sh";
 
     g_argv[1u] = "-c";
 
-    g_argv[2u] = a_line;
+    /* detect if exec is possible */
+    if (strchr(a_line, ';') ||
+        strchr(a_line, '&') ||
+        strchr(a_line, '|'))
+    {
+        g_argv[2u] = a_line;
 
-    g_argv[3u] = NULL;
+        g_argv[3u] = NULL;
+    }
+    else
+    {
+        sprintf(a_split, "exec %s", a_line);
+
+        g_argv[2u] = a_split;
+
+        g_argv[3u] = NULL;
+    }
 
     /* execute the command */
     iChildProcess = fork();
@@ -219,42 +302,6 @@ snck_fork_and_exec(void)
 
 static
 char
-snck_execute_child(void)
-{
-    char b_result;
-
-    if ('#' == g_argv[0u][0u])
-    {
-        /* This is a comment line */
-        b_result = 1;
-    }
-    else if (0 == strcmp(g_argv[0u], "cd"))
-    {
-        b_result = snck_builtin_cd();
-    }
-    else if (0 == strcmp(g_argv[0u], "set"))
-    {
-        b_result = snck_builtin_set();
-    }
-    else if (0 == strcmp(g_argv[0u], "unset"))
-    {
-        b_result = snck_builtin_unset();
-    }
-    else if (0 == strcmp(g_argv[0u], "sexe"))
-    {
-        b_result = snck_builtin_sexe();
-    }
-    else
-    {
-        b_result = snck_fork_and_exec();
-    }
-
-    return b_result;
-
-} /* snck_execute_child() */
-
-static
-char
 snck_tokenize_line(
     char * p_line)
 {
@@ -280,6 +327,77 @@ snck_tokenize_line(
 
 } /* snck_tokenize_line() */
 
+static
+char
+snck_execute_child(void)
+{
+    char b_result;
+
+    char * p_cmd;
+
+    unsigned int i_cmd_len;
+
+    p_cmd = a_split;
+
+    while ((' ' == *p_cmd) || ('\t' == *p_cmd))
+    {
+        p_cmd ++;
+    }
+
+    i_cmd_len = 0u;
+
+    while (('\000' != p_cmd[i_cmd_len]) && (' ' != p_cmd[i_cmd_len]) && ('\t' != p_cmd[i_cmd_len]))
+    {
+        i_cmd_len ++;
+    }
+
+    if ('#' == p_cmd[0u])
+    {
+        /* This is a comment line */
+        b_result = 1;
+    }
+    else if (0 == i_cmd_len)
+    {
+        /* Empty line */
+        b_result = 1;
+    }
+    else if (0 == strncmp(p_cmd, "cd", i_cmd_len))
+    {
+        snck_tokenize_line(p_cmd + i_cmd_len);
+
+        b_result = snck_builtin_cd();
+    }
+    else if (0 == strncmp(p_cmd, "set", i_cmd_len))
+    {
+        snck_tokenize_line(p_cmd + i_cmd_len);
+
+        b_result = snck_builtin_set();
+    }
+    else if (0 == strncmp(p_cmd, "unset", i_cmd_len))
+    {
+        snck_tokenize_line(p_cmd + i_cmd_len);
+
+        b_result = snck_builtin_unset();
+    }
+    else if (0 == strncmp(p_cmd, "sexe", i_cmd_len))
+    {
+        snck_tokenize_line(p_cmd + i_cmd_len);
+
+        b_result = snck_builtin_sexe();
+    }
+    else if ((0 == strncmp(p_cmd, "exit", i_cmd_len)) || (0 == strncmp(p_cmd, "logout", i_cmd_len)))
+    {
+        exit(0);
+    }
+    else
+    {
+        b_result = snck_fork_and_exec();
+    }
+
+    return b_result;
+
+} /* snck_execute_child() */
+
 /*
 
 Function: snck_process_line
@@ -289,8 +407,7 @@ Description:
 */
 static
 char
-snck_process_line(
-    char * p_line)
+snck_process_line(void)
 {
     char b_result;
 
@@ -301,23 +418,11 @@ snck_process_line(
     /* wo[func][func]rd */
     /* wo[sp]rd */
 
-    strcpy(a_line, p_line);
+    strcpy(a_line, a_split);
 
-    b_result = snck_tokenize_line(p_line);
+    /* expand of functions */
 
-    if (b_result)
-    {
-        if (g_argc)
-        {
-            /* expand of functions */
-
-            b_result = snck_execute_child();
-        }
-        else
-        {
-            b_result = 1;
-        }
-    }
+    b_result = snck_execute_child();
 
     return b_result;
 
@@ -325,16 +430,8 @@ snck_process_line(
 
 static
 void
-snck_build_prompt(
-    char * a_prompt,
-    size_t i_prompt_len)
+snck_build_prompt(void)
 {
-    static char a_pwd[1024u];
-
-    a_pwd[0] = '\000';
-
-    getcwd(a_pwd, sizeof(a_pwd));
-
     if (0 == strncmp(a_pwd, a_home, strlen(a_home)))
     {
         sprintf(a_prompt, "%s@%s:~%s$ ", a_user, a_host, a_pwd + strlen(a_home));
@@ -358,6 +455,12 @@ snck_completion(
     /* find the word under the cursor */
     /* locate words before and words after */
     /* complete entire line and replace word with other ... */
+
+#if 0
+    strcpy(a_split, buf);
+
+    snck_tokenize_line();
+#endif
 
     int pos0;
 
@@ -469,17 +572,13 @@ snck_completion(
 
 static
 char
-snck_read_line(
-    char * a_line,
-    size_t i_line_len)
+snck_read_line(void)
 {
-    static char a_prompt[4096u];
-
     char b_result;
 
-    char * p_line;
+    char * p_temp;
 
-    snck_build_prompt(a_prompt, sizeof(a_prompt));
+    snck_build_prompt();
 
 #if defined(SNCK_FEATURE_LINENOISE)
 
@@ -487,32 +586,34 @@ snck_read_line(
 
     linenoiseSetCompletionCallback(snck_completion);
 
-    p_line = linenoise(a_prompt);
+    p_temp = linenoise(a_prompt);
 
-    if (p_line)
+    if (p_temp)
     {
-        linenoiseHistoryAdd(p_line);
+        linenoiseHistoryAdd(p_temp);
 
-        strcpy(a_line, p_line);
+        strcpy(a_split, p_temp);
 
         b_result = 1;
 
-        free(p_line);
+        free(p_temp);
     }
     else
     {
         if (errno == EAGAIN)
         {
             /* ctrl+c was pressed */
-            a_line[0] = '\n';
+            a_split[0] = '\n';
 
-            a_line[1] = '\000';
+            a_split[1] = '\000';
 
             b_result = 1;
         }
         else
         {
+#if 0
             fprintf(stderr, "... bye!\n");
+#endif
 
             b_result = 0;
         }
@@ -524,15 +625,17 @@ snck_read_line(
 
     fflush(stdout);
 
-    if (NULL != fgets(a_line, i_line_len, stdin))
+    if (NULL != fgets(a_split, sizeof(a_split) - 1u, stdin))
     {
-        a_line[65535u] = '\0';
+        a_split[sizeof(a_split) - 1u] = '\0';
 
         b_result = 1;
     }
     else
     {
+#if 0
         fprintf(stderr, "... bye!\n");
+#endif
 
         b_result = 0;
     }
@@ -546,8 +649,6 @@ static
 char
 snck_read_file(void)
 {
-    static char a_line[65536u];
-
     char b_result;
 
     char b_continue;
@@ -558,11 +659,11 @@ snck_read_file(void)
 
     while (b_result && b_continue)
     {
-        a_line[0] = '\000';
+        a_split[0] = '\000';
 
-        if (snck_read_line(a_line, sizeof(a_line)))
+        if (snck_read_line())
         {
-            if (snck_process_line(a_line))
+            if (snck_process_line())
             {
             }
             else
@@ -688,6 +789,24 @@ snck_detect_info(void)
         b_found_host = 1;
     }
 
+    a_pwd[0] = '\000';
+
+    if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
+    {
+        if (0 == setenv("PWD", a_pwd, 1))
+        {
+        }
+        else
+        {
+        }
+    }
+    else
+    {
+        unsetenv("PWD");
+    }
+
+    strcpy(a_pwd_old, a_pwd);
+
 }
 
 static void snck_sigchld(int unused)
@@ -728,6 +847,12 @@ snck_main(
         /* signal(SIGTSTP, SIG_IGN); */
 
         snck_detect_info();
+
+        unsetenv("SHLVL");
+
+        unsetenv("_");
+
+        unsetenv("MAIL");
 
         if (snck_read_file())
         {
