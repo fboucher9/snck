@@ -208,7 +208,7 @@ snck_builtin_unset(void)
 
 static
 char
-snck_builtin_sexe(void)
+snck_builtin_shell(void)
 {
     char b_result;
 
@@ -216,7 +216,7 @@ snck_builtin_sexe(void)
     {
         execvp(g_argv[0u], g_argv);
 
-        fprintf(stderr, "unable to sexecute\n");
+        fprintf(stderr, "unable to replace shell\n");
 
         b_result = 1;
     }
@@ -229,7 +229,7 @@ snck_builtin_sexe(void)
 
     return b_result;
 
-} /* snck_builtin_sexe() */
+} /* snck_builtin_shell() */
 
 static
 char
@@ -379,11 +379,11 @@ snck_execute_child(void)
 
         b_result = snck_builtin_unset();
     }
-    else if (0 == strncmp(p_cmd, "sexe", i_cmd_len))
+    else if (0 == strncmp(p_cmd, "shell", i_cmd_len))
     {
         snck_tokenize_line(p_cmd + i_cmd_len);
 
-        b_result = snck_builtin_sexe();
+        b_result = snck_builtin_shell();
     }
     else if ((0 == strncmp(p_cmd, "exit", i_cmd_len)) || (0 == strncmp(p_cmd, "logout", i_cmd_len)))
     {
@@ -462,6 +462,36 @@ snck_completion(
     snck_tokenize_line();
 #endif
 
+    char b_cmd_is_cd;
+
+    b_cmd_is_cd = 0;
+
+    {
+        char const * p_cmd;
+
+        p_cmd = buf;
+
+        while ((*p_cmd == ' ') || (*p_cmd == '\t'))
+        {
+            p_cmd ++;
+        }
+
+        if ('c' == *p_cmd)
+        {
+            p_cmd ++;
+
+            if ('d' == *p_cmd)
+            {
+                p_cmd ++;
+
+                if (('\000' == *p_cmd) || (*p_cmd == ' ') || (*p_cmd == '\t'))
+                {
+                    b_cmd_is_cd = 1;
+                }
+            }
+        }
+    }
+
     int pos0;
 
     if (pos > 0)
@@ -512,24 +542,35 @@ snck_completion(
         pos1 = 0;
     }
 
-    static char a_folder[1024u];
-
-    a_folder[0u] = '\000';
+    char * p_folder;
 
     if (pos1 > pos0)
     {
-        memcpy(a_folder, buf + pos0, pos1 - pos0);
+        static char a_folder[1024u];
 
-        a_folder[pos1 - pos0] = '\000';
+        a_folder[0u] = '\000';
+
+        if (buf[pos0] == '~')
+        {
+            sprintf(a_folder, "%s%.*s", a_home, pos1 - pos0 - 1, buf + pos0 + 1);
+        }
+        else
+        {
+            memcpy(a_folder, buf + pos0, pos1 - pos0);
+
+            a_folder[pos1 - pos0] = '\000';
+        }
+
+        p_folder = a_folder;
     }
     else
     {
-        strcpy(a_folder, ".");
+        p_folder = ".";
     }
 
     DIR * d;
 
-    d = opendir(a_folder);
+    d = opendir(p_folder);
     if (d)
     {
         while (1)
@@ -544,18 +585,21 @@ snck_completion(
                 }
                 else if (0 == strncmp(e->d_name, buf + pos1, pos - pos1))
                 {
-                    static char suggest[1024u];
-
-                    if (pos1 > 0)
+                    if (!b_cmd_is_cd || (DT_DIR == e->d_type))
                     {
-                        sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
-                    }
-                    else
-                    {
-                        sprintf(suggest, "%s", e->d_name);
-                    }
+                        static char suggest[1024u];
 
-                    linenoiseAddCompletion(lc, suggest);
+                        if (pos1 > 0)
+                        {
+                            sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
+                        }
+                        else
+                        {
+                            sprintf(suggest, "%s", e->d_name);
+                        }
+
+                        linenoiseAddCompletion(lc, suggest);
+                    }
                 }
             }
             else
@@ -686,6 +730,8 @@ static
 void
 snck_detect_info(void)
 {
+    char * p_env;
+
     char b_found_user;
 
     char b_found_home;
@@ -706,13 +752,11 @@ snck_detect_info(void)
 
     if (!b_found_user)
     {
-        char * p_user;
+        p_env = getenv("USER");
 
-        p_user = getenv("USER");
-
-        if (p_user)
+        if (p_env)
         {
-            strcpy(a_user, p_user);
+            strcpy(a_user, p_env);
 
             b_found_user = 1;
         }
@@ -720,13 +764,11 @@ snck_detect_info(void)
 
     if (!b_found_home)
     {
-        char * p_home;
+        p_env = getenv("HOME");
 
-        p_home = getenv("HOME");
-
-        if (p_home)
+        if (p_env)
         {
-            strcpy(a_home, p_home);
+            strcpy(a_home, p_env);
 
             b_found_home = 1;
         }
@@ -807,6 +849,10 @@ snck_detect_info(void)
 
     strcpy(a_pwd_old, a_pwd);
 
+    setenv("USER", a_user, 1);
+
+    setenv("HOME", a_home, 1);
+
 }
 
 static void snck_sigchld(int unused)
@@ -853,6 +899,8 @@ snck_main(
         unsetenv("_");
 
         unsetenv("MAIL");
+
+        unsetenv("OLDPWD");
 
         if (snck_read_file())
         {
