@@ -519,6 +519,12 @@ snck_build_prompt(void)
 
                         p_out ++;
                     }
+                    else if ('_' == c_in)
+                    {
+                        *p_out = ' ';
+
+                        p_out ++;
+                    }
                     else
                     {
                         *p_out = c_in;
