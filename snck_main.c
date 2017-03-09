@@ -38,9 +38,17 @@ static char a_pwd[1024u];
 
 static char a_prompt[4096u];
 
+static char a_folder[1024u];
+
+static char suggest[1024u];
+
+static char a_history_file[1024u];
+
 static char * g_argv[1024u];
 
 static unsigned int g_argc = 0;
+
+static char b_history_loaded = 0;
 
 static
 char
@@ -432,15 +440,111 @@ static
 void
 snck_build_prompt(void)
 {
-    if (0 == strncmp(a_pwd, a_home, strlen(a_home)))
+    char * p_ps1;
+
     {
-        sprintf(a_prompt, "%s@%s:~%s$ ", a_user, a_host, a_pwd + strlen(a_home));
+        char * p_env;
+
+        p_env = getenv("PS1");
+
+        if (p_env)
+        {
+            p_ps1 = p_env;
+        }
+        else
+        {
+            p_ps1 = "\\u@\\h:\\w\\$ ";
+        }
     }
-    else
+
     {
-        sprintf(a_prompt, "%s@%s:%s$ ", a_user, a_host, a_pwd);
+        char * p_in;
+
+        char * p_out;
+
+        int i_len;
+
+        p_in = p_ps1;
+
+        p_out = a_prompt;
+
+        while ('\000' != *p_in)
+        {
+            char c_in;
+
+            c_in = *p_in;
+
+            p_in ++;
+
+            if ('\\' == c_in)
+            {
+                if ('\000' != *p_in)
+                {
+                    c_in = *p_in;
+
+                    p_in ++;
+
+                    if ('u' == c_in)
+                    {
+                        i_len = strlen(a_user);
+                        memcpy(p_out, a_user, i_len);
+                        p_out += i_len;
+                    }
+                    else if ('h' == c_in)
+                    {
+                        i_len = strlen(a_host);
+                        memcpy(p_out, a_host, i_len);
+                        p_out += i_len;
+                    }
+                    else if ('w' == c_in)
+                    {
+                        if (0 == strncmp(a_pwd, a_home, strlen(a_home)))
+                        {
+                            *p_out = '~';
+                            p_out ++;
+                            i_len = strlen(a_pwd) - strlen(a_home);
+                            memcpy(p_out, a_pwd + strlen(a_home), i_len);
+                            p_out += i_len;
+                        }
+                        else
+                        {
+                            i_len = strlen(a_pwd);
+                            memcpy(p_out, a_pwd, i_len);
+                            p_out += i_len;
+                        }
+                    }
+                    else if ('$' == c_in)
+                    {
+                        *p_out = '$';
+
+                        p_out ++;
+                    }
+                    else
+                    {
+                        *p_out = c_in;
+
+                        p_out ++;
+                    }
+                }
+                else
+                {
+                    /* error */
+                }
+            }
+            else
+            {
+                *p_out = c_in;
+
+                p_out ++;
+            }
+        }
+
+        *p_out = '\000';
+
+        p_out ++;
     }
-}
+
+} /* snck_build_prompt() */
 
 #if defined(SNCK_FEATURE_LINENOISE)
 
@@ -546,8 +650,6 @@ snck_completion(
 
     if (pos1 > pos0)
     {
-        static char a_folder[1024u];
-
         a_folder[0u] = '\000';
 
         if (buf[pos0] == '~')
@@ -568,6 +670,12 @@ snck_completion(
         p_folder = ".";
     }
 
+    static char * a_suggest[128u];
+
+    static int i_suggest;
+
+    i_suggest = 0;
+
     DIR * d;
 
     d = opendir(p_folder);
@@ -587,8 +695,6 @@ snck_completion(
                 {
                     if (!b_cmd_is_cd || (DT_DIR == e->d_type))
                     {
-                        static char suggest[1024u];
-
                         if (pos1 > 0)
                         {
                             sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
@@ -598,7 +704,47 @@ snck_completion(
                             sprintf(suggest, "%s", e->d_name);
                         }
 
-                        linenoiseAddCompletion(lc, suggest);
+                        /* Do sort of suggestions */
+
+                        {
+                            int i;
+                            int j;
+                            char * p_temp;
+                            char b_inserted;
+                            i = 0;
+                            b_inserted = 0;
+                            while (!b_inserted && (i < i_suggest))
+                            {
+                                int i_compare;
+                                i_compare = strcmp(suggest, a_suggest[i]);
+                                if (0 == i_compare)
+                                {
+                                    b_inserted = 1;
+                                }
+                                else if (0 > i_compare)
+                                {
+                                    j = i_suggest;
+                                    while (j > i)
+                                    {
+                                        a_suggest[j] = a_suggest[j-1];
+                                        j--;
+                                    }
+                                    a_suggest[i] = strdup(suggest);
+                                    b_inserted = 1;
+                                    i_suggest ++;
+                                }
+                                else
+                                {
+                                    i++;
+                                }
+                            }
+
+                            if (!b_inserted)
+                            {
+                                a_suggest[i_suggest] = strdup(suggest);
+                                i_suggest ++;
+                            }
+                        }
                     }
                 }
             }
@@ -610,6 +756,27 @@ snck_completion(
 
         closedir(d);
     }
+
+    /* Find common prefix for suggestions */
+
+    /* Merge list of suggestions into linenoise */
+
+    {
+        int i;
+        i = 0;
+        while (i < i_suggest)
+        {
+            if (a_suggest[i])
+            {
+                linenoiseAddCompletion(lc, a_suggest[i]);
+                free(a_suggest[i]);
+                a_suggest[i] = NULL;
+            }
+            i++;
+        }
+    }
+
+
 } /* snck_completion */
 
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
@@ -628,13 +795,32 @@ snck_read_line(void)
 
     errno = 0;
 
+    {
+        if (!b_history_loaded)
+        {
+            sprintf(a_history_file, "%s/.snckhist", a_home);
+
+            linenoiseHistoryLoad(a_history_file);
+
+            b_history_loaded = 1;
+        }
+    }
+
     linenoiseSetCompletionCallback(snck_completion);
 
     p_temp = linenoise(a_prompt);
 
     if (p_temp)
     {
-        linenoiseHistoryAdd(p_temp);
+        if (' ' != p_temp[0u])
+        {
+            /* Detect duplicate entries... */
+
+            if (linenoiseHistoryAdd(p_temp))
+            {
+                linenoiseHistorySave(a_history_file);
+            }
+        }
 
         strcpy(a_split, p_temp);
 
