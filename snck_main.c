@@ -555,6 +555,56 @@ snck_build_prompt(void)
 #if defined(SNCK_FEATURE_LINENOISE)
 
 static
+int
+snck_fuzzy_compare(
+    char const * p_ref1,
+    char const * p_ref2,
+    int const i_len)
+{
+    int i_result;
+
+    int i_ref1;
+
+    int i_ref2;
+
+    if (i_len > 1)
+    {
+        i_result = 1;
+
+        i_ref1 = 0;
+
+        i_ref2 = 0;
+
+        /* try to find each letter of p_ref2[0:i_len-1] within p_ref1 */
+        while ((i_ref1 < strlen(p_ref1)) && (i_ref2 < i_len))
+        {
+            /* Look for a letter */
+            if (p_ref1[i_ref1] == p_ref2[i_ref2])
+            {
+                i_ref1 ++;
+                i_ref2 ++;
+            }
+            else
+            {
+                i_ref1 ++;
+            }
+        }
+
+        if (i_ref2 >= i_len)
+        {
+            i_result = 0;
+        }
+    }
+    else
+    {
+        i_result = strncmp(p_ref1, p_ref2, i_len);
+    }
+
+    return i_result;
+
+}
+
+static
 void
 snck_completion(
     char const * buf,
@@ -685,6 +735,7 @@ snck_completion(
     DIR * d;
 
     d = opendir(p_folder);
+
     if (d)
     {
         while (1)
@@ -697,7 +748,7 @@ snck_completion(
                 if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
                 {
                 }
-                else if (0 == strncmp(e->d_name, buf + pos1, pos - pos1))
+                else if (0 == snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1))
                 {
                     if (!b_cmd_is_cd || (DT_DIR == e->d_type))
                     {
@@ -710,45 +761,62 @@ snck_completion(
                             sprintf(suggest, "%s", e->d_name);
                         }
 
-                        /* Do sort of suggestions */
-
+                        if (0 != strcmp(suggest, buf))
                         {
-                            int i;
-                            int j;
-                            char * p_temp;
-                            char b_inserted;
-                            i = 0;
-                            b_inserted = 0;
-                            while (!b_inserted && (i < i_suggest))
+                            /* Do sort of suggestions */
+
                             {
-                                int i_compare;
-                                i_compare = strcmp(suggest, a_suggest[i]);
-                                if (0 == i_compare)
+                                int i;
+
+                                int j;
+
+                                char * p_temp;
+
+                                char b_inserted;
+
+                                i = 0;
+
+                                b_inserted = 0;
+
+                                while (!b_inserted && (i < i_suggest))
                                 {
-                                    b_inserted = 1;
-                                }
-                                else if (0 > i_compare)
-                                {
-                                    j = i_suggest;
-                                    while (j > i)
+                                    int i_compare;
+
+                                    i_compare = strcmp(suggest, a_suggest[i]);
+
+                                    if (0 == i_compare)
                                     {
-                                        a_suggest[j] = a_suggest[j-1];
-                                        j--;
+                                        b_inserted = 1;
                                     }
-                                    a_suggest[i] = strdup(suggest);
-                                    b_inserted = 1;
+                                    else if (0 > i_compare)
+                                    {
+                                        j = i_suggest;
+
+                                        while (j > i)
+                                        {
+                                            a_suggest[j] = a_suggest[j-1];
+
+                                            j--;
+                                        }
+
+                                        a_suggest[i] = strdup(suggest);
+
+                                        b_inserted = 1;
+
+                                        i_suggest ++;
+                                    }
+                                    else
+                                    {
+                                        i++;
+                                    }
+                                }
+
+                                if (!b_inserted)
+                                {
+                                    a_suggest[i_suggest] = strdup(suggest);
+
                                     i_suggest ++;
                                 }
-                                else
-                                {
-                                    i++;
-                                }
-                            }
-
-                            if (!b_inserted)
-                            {
-                                a_suggest[i_suggest] = strdup(suggest);
-                                i_suggest ++;
                             }
                         }
                     }
@@ -763,21 +831,66 @@ snck_completion(
         closedir(d);
     }
 
-    /* Find common prefix for suggestions */
-
-    /* Merge list of suggestions into linenoise */
-
+    /* If only one suggestion... */
+    if (0 == i_suggest)
     {
+    }
+    else if (1 == i_suggest)
+    {
+        linenoiseAddCompletion(lc, a_suggest[0]);
+    }
+    else
+    {
+        int j;
+
         int i;
+
+        /* Find common prefix for suggestions */
+        i = 1;
+
+        j = strlen(a_suggest[0]);
+
+        while (i < i_suggest)
+        {
+            int k;
+
+            /* Find new common length */
+            k = 0;
+
+            while ((k < j) && a_suggest[0][k] && (a_suggest[0][k] == a_suggest[i][k]))
+            {
+                k++;
+            }
+
+            j = k;
+
+            i ++;
+        }
+
+        if ((j != strlen(a_suggest[0])) && (j > strlen(buf)))
+        {
+            /* suggest only common prefix... */
+            strcpy(suggest, a_suggest[0]);
+
+            suggest[j] = '\000';
+
+            linenoiseAddCompletion(lc, suggest);
+        }
+
+        /* Merge list of suggestions into linenoise */
         i = 0;
+
         while (i < i_suggest)
         {
             if (a_suggest[i])
             {
                 linenoiseAddCompletion(lc, a_suggest[i]);
+
                 free(a_suggest[i]);
+
                 a_suggest[i] = NULL;
             }
+
             i++;
         }
     }
