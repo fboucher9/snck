@@ -14,6 +14,9 @@ endif
 
 SNCK_SRCS = \
     $(SNCK_SRC_PATH)/snck_main.c \
+    $(SNCK_SRC_PATH)/snck_info.c \
+    $(SNCK_SRC_PATH)/snck_string.c \
+    $(SNCK_SRC_PATH)/snck_heap.c \
     $(SNCK_SRC_PATH)/snck_os.c
 
 SNCK_LIBS =

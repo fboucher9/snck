@@ -14,27 +14,37 @@ Description:
 /* Configuration */
 #include "snck_cfg.h"
 
+/* Context */
+#include "snck_ctxt.h"
+
 /* Module */
 #include "snck_main.h"
+
+/* String */
+#include "snck_string.h"
+
+/* Heap */
+#include "snck_heap.h"
+
+/* Information */
+#include "snck_info.h"
 
 /* */
 #if defined(SNCK_FEATURE_LINENOISE)
 #include <linenoise.h>
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
+static struct snck_ctxt o_ctxt;
+
+static struct snck_ctxt * p_ctxt;
+
+static struct snck_info o_info;
+
+static struct snck_heap o_heap;
+
 static char a_split[65536u];
 
 static char a_line[65536u];
-
-static char a_home[1024u];
-
-static char a_user[1024u];
-
-static char a_host[1024u];
-
-static char a_pwd_old[1024u];
-
-static char a_pwd[1024u];
 
 static char a_prompt[4096u];
 
@@ -64,17 +74,19 @@ snck_builtin_cd(void)
 
     char * p_path;
 
+    p_path = NULL;
+
     if (g_argc > 0u)
     {
         if (0 == strcmp(g_argv[0u], "-"))
         {
-            p_path = a_pwd_old;
+            p_path = p_ctxt->p_info->o_old_pwd.p_buf;
         }
         else
         {
             if ('~' == g_argv[0u][0u])
             {
-                sprintf(a_line, "%s%s", a_home, g_argv[0u] + 1);
+                sprintf(a_line, "%s%s", p_ctxt->p_info->o_home.p_buf, g_argv[0u] + 1);
 
                 p_path = a_line;
             }
@@ -86,33 +98,62 @@ snck_builtin_cd(void)
     }
     else
     {
-        p_path = a_home;
+        p_path = p_ctxt->p_info->o_home.p_buf;
     }
 
-    if (0 != strcmp(p_path, "."))
+    if (p_path)
     {
-        i_result = chdir(p_path);
-
-        if (0 == i_result)
+        if (0 != strcmp(p_path, "."))
         {
-            strcpy(a_pwd_old, a_pwd);
+            i_result = chdir(p_path);
 
-            if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
+            if (0 == i_result)
             {
-                if (0 == setenv("PWD", a_pwd, 1))
-                {
-                }
-                else
-                {
-                }
-            }
+                snck_string_copy_object(
+                    p_ctxt,
+                    &(
+                        p_ctxt->p_info->o_old_pwd),
+                    &(
+                        p_ctxt->p_info->o_pwd));
 
-            b_result = 1;
+                {
+                    static char a_pwd[1024u];
+
+                    a_pwd[0u] = '\000';
+
+                    if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
+                    {
+                    }
+                    else
+                    {
+                        strcpy(a_pwd, "/");
+                    }
+
+                    if (0 == setenv("PWD", a_pwd, 1))
+                    {
+                    }
+                    else
+                    {
+                    }
+
+                    snck_string_copy(
+                        p_ctxt,
+                        &(p_ctxt->p_info->o_pwd),
+                        a_pwd);
+                }
+
+                b_result = 1;
+            }
+            else
+            {
+                fprintf(stderr, "failure to change directory\n");
+
+                b_result = 1;
+            }
         }
         else
         {
-            fprintf(stderr, "failure to change directory\n");
-
+            /* Nothing changed */
             b_result = 1;
         }
     }
@@ -490,30 +531,30 @@ snck_build_prompt(void)
 
                     if ('u' == c_in)
                     {
-                        i_len = strlen(a_user);
-                        memcpy(p_out, a_user, i_len);
+                        i_len = p_ctxt->p_info->o_user.i_buf_len;
+                        memcpy(p_out, p_ctxt->p_info->o_user.p_buf, i_len);
                         p_out += i_len;
                     }
                     else if ('h' == c_in)
                     {
-                        i_len = strlen(a_host);
-                        memcpy(p_out, a_host, i_len);
+                        i_len = p_ctxt->p_info->o_host.i_buf_len;
+                        memcpy(p_out, p_ctxt->p_info->o_host.p_buf, i_len);
                         p_out += i_len;
                     }
                     else if ('w' == c_in)
                     {
-                        if (0 == strncmp(a_pwd, a_home, strlen(a_home)))
+                        if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
                         {
                             *p_out = '~';
                             p_out ++;
-                            i_len = strlen(a_pwd) - strlen(a_home);
-                            memcpy(p_out, a_pwd + strlen(a_home), i_len);
+                            i_len = p_ctxt->p_info->o_pwd.i_buf_len - p_ctxt->p_info->o_home.i_buf_len;
+                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf + p_ctxt->p_info->o_home.i_buf_len, i_len);
                             p_out += i_len;
                         }
                         else
                         {
-                            i_len = strlen(a_pwd);
-                            memcpy(p_out, a_pwd, i_len);
+                            i_len = p_ctxt->p_info->o_pwd.i_buf_len;
+                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf, i_len);
                             p_out += i_len;
                         }
                     }
@@ -783,7 +824,7 @@ snck_completion(
 
             if (buf[pos0] == '~')
             {
-                sprintf(a_folder, "%s%.*s", a_home, pos1 - pos0 - 1, buf + pos0 + 1);
+                sprintf(a_folder, "%s%.*s", p_ctxt->p_info->o_home.p_buf, pos1 - pos0 - 1, buf + pos0 + 1);
             }
             else
             {
@@ -1005,7 +1046,7 @@ snck_read_line(void)
     {
         if (!b_history_loaded)
         {
-            sprintf(a_history_file, "%s/.snckhist", a_home);
+            sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
 
             linenoiseHistoryLoad(a_history_file);
 
@@ -1119,135 +1160,6 @@ snck_read_file(void)
     return b_result;
 }
 
-static
-void
-snck_detect_info(void)
-{
-    char * p_env;
-
-    char b_found_user;
-
-    char b_found_home;
-
-    char b_found_host;
-
-    a_user[0u] = '\000';
-
-    a_home[0u] = '\000';
-
-    a_host[0u] = '\000';
-
-    b_found_user = 0;
-
-    b_found_home = 0;
-
-    b_found_host = 0;
-
-    if (!b_found_user)
-    {
-        p_env = getenv("USER");
-
-        if (p_env)
-        {
-            strcpy(a_user, p_env);
-
-            b_found_user = 1;
-        }
-    }
-
-    if (!b_found_home)
-    {
-        p_env = getenv("HOME");
-
-        if (p_env)
-        {
-            strcpy(a_home, p_env);
-
-            b_found_home = 1;
-        }
-    }
-
-    if (!b_found_user || !b_found_home)
-    {
-        uid_t id;
-
-        struct passwd * pw;
-
-        id = getuid();
-
-        pw = getpwuid(id);
-
-        if (pw)
-        {
-            if (!b_found_user)
-            {
-                strcpy(a_user, pw->pw_name);
-
-                b_found_user = 1;
-            }
-
-            if (!b_found_home)
-            {
-                strcpy(a_home, pw->pw_dir);
-
-                b_found_home = 1;
-            }
-        }
-    }
-
-    if (!b_found_user)
-    {
-        strcpy(a_user, "snck");
-
-        b_found_user = 1;
-    }
-
-    if (!b_found_home)
-    {
-        sprintf(a_home, "/home/%s", a_user);
-
-        b_found_home = 1;
-    }
-
-    if (!b_found_host)
-    {
-        if (0 == gethostname(a_host, sizeof(a_host)))
-        {
-            b_found_host = 1;
-        }
-    }
-
-    if (!b_found_host)
-    {
-        strcpy(a_host, "snck");
-
-        b_found_host = 1;
-    }
-
-    a_pwd[0] = '\000';
-
-    if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
-    {
-        if (0 == setenv("PWD", a_pwd, 1))
-        {
-        }
-        else
-        {
-        }
-    }
-    else
-    {
-        unsetenv("PWD");
-    }
-
-    strcpy(a_pwd_old, a_pwd);
-
-    setenv("USER", a_user, 1);
-
-    setenv("HOME", a_home, 1);
-
-}
-
 static void snck_sigchld(int unused)
 {
     (void)(unused);
@@ -1279,25 +1191,50 @@ snck_main(
     }
     else
     {
-        /* install a SIGCHLD handler */
-        signal(SIGCHLD, snck_sigchld);
-        signal(SIGINT, SIG_IGN);
-        signal(SIGHUP, SIG_IGN);
-        /* signal(SIGTSTP, SIG_IGN); */
+        p_ctxt = &(o_ctxt);
 
-        snck_detect_info();
+        p_ctxt->p_heap = &(o_heap);
 
-        unsetenv("SHLVL");
+        p_ctxt->p_info = &(o_info);
 
-        unsetenv("_");
-
-        unsetenv("MAIL");
-
-        unsetenv("OLDPWD");
-
-        if (snck_read_file())
+        if (snck_heap_init(p_ctxt))
         {
-            i_exit_status = 0;
+            if (snck_info_init(p_ctxt))
+            {
+                /* install a SIGCHLD handler */
+                signal(SIGCHLD, snck_sigchld);
+
+                signal(SIGINT, SIG_IGN);
+
+                signal(SIGHUP, SIG_IGN);
+
+                /* signal(SIGTSTP, SIG_IGN); */
+
+                unsetenv("SHLVL");
+
+                unsetenv("_");
+
+                unsetenv("MAIL");
+
+                unsetenv("OLDPWD");
+
+                if (snck_read_file())
+                {
+                    i_exit_status = 0;
+                }
+                else
+                {
+                    i_exit_status = 1;
+                }
+
+                snck_info_cleanup(p_ctxt);
+            }
+            else
+            {
+                i_exit_status = 1;
+            }
+
+            snck_heap_cleanup(p_ctxt);
         }
         else
         {
