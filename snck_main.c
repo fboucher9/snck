@@ -50,6 +50,10 @@ static unsigned int g_argc = 0;
 
 static char b_history_loaded = 0;
 
+static char * a_suggest[128u];
+
+static int i_suggest = 0;
+
 static
 char
 snck_builtin_cd(void)
@@ -606,6 +610,69 @@ snck_fuzzy_compare(
 
 static
 void
+snck_suggest_add(
+    char const * suggest)
+{
+    if (i_suggest < 128)
+    {
+        int i;
+
+        int j;
+
+        char * p_temp;
+
+        char b_inserted;
+
+        i = 0;
+
+        b_inserted = 0;
+
+        while (!b_inserted && (i < i_suggest))
+        {
+            int i_compare;
+
+            i_compare = strcmp(suggest, a_suggest[i]);
+
+            if (0 == i_compare)
+            {
+                b_inserted = 1;
+            }
+            else if (0 > i_compare)
+            {
+                /* Do sort of suggestions */
+
+                j = i_suggest;
+
+                while (j > i)
+                {
+                    a_suggest[j] = a_suggest[j-1];
+
+                    j--;
+                }
+
+                a_suggest[i] = strdup(suggest);
+
+                b_inserted = 1;
+
+                i_suggest ++;
+            }
+            else
+            {
+                i++;
+            }
+        }
+
+        if (!b_inserted)
+        {
+            a_suggest[i_suggest] = strdup(suggest);
+
+            i_suggest ++;
+        }
+    }
+}
+
+static
+void
 snck_completion(
     char const * buf,
     size_t pos,
@@ -622,29 +689,33 @@ snck_completion(
     snck_tokenize_line();
 #endif
 
+    int i_cmd_prefix;
+
+    i_cmd_prefix = 0;
+
+    while ((i_cmd_prefix <= pos) && (buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t'))
+    {
+        i_cmd_prefix ++;
+    }
+
     char b_cmd_is_cd;
 
     b_cmd_is_cd = 0;
 
     {
-        char const * p_cmd;
+        int i_cmd_it;
 
-        p_cmd = buf;
+        i_cmd_it = i_cmd_prefix;
 
-        while ((*p_cmd == ' ') || (*p_cmd == '\t'))
+        if ('c' == buf[i_cmd_it])
         {
-            p_cmd ++;
-        }
+            i_cmd_it ++;
 
-        if ('c' == *p_cmd)
-        {
-            p_cmd ++;
-
-            if ('d' == *p_cmd)
+            if ('d' == buf[i_cmd_it])
             {
-                p_cmd ++;
+                i_cmd_it ++;
 
-                if (('\000' == *p_cmd) || (*p_cmd == ' ') || (*p_cmd == '\t'))
+                if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
                 {
                     b_cmd_is_cd = 1;
                 }
@@ -652,249 +723,266 @@ snck_completion(
         }
     }
 
-    int pos0;
-
-    if (pos > 0)
+    if (pos > i_cmd_prefix)
     {
-        pos0 = (int)(pos - 1);
+        int pos0;
 
-        while (pos0 >= 0)
+        if (pos > 0)
         {
-            if (buf[pos0] == ' ')
+            pos0 = (int)(pos - 1);
+
+            while (pos0 >= 0)
             {
-                break;
+                if (buf[pos0] == ' ')
+                {
+                    break;
+                }
+
+                pos0 --;
             }
 
-            pos0 --;
-        }
-
-        pos0 ++;
-    }
-    else
-    {
-        pos0 = 0;
-    }
-
-    /* Find the directory name */
-
-    /* From beginning of word to last slash */
-
-    int pos1;
-
-    if (pos > 0)
-    {
-        pos1 = (int)(pos - 1);
-
-        while (pos1 >= pos0)
-        {
-            if (buf[pos1] == '/')
-            {
-                break;
-            }
-
-            pos1 --;
-        }
-
-        pos1++;
-    }
-    else
-    {
-        pos1 = 0;
-    }
-
-    char * p_folder;
-
-    if (pos1 > pos0)
-    {
-        a_folder[0u] = '\000';
-
-        if (buf[pos0] == '~')
-        {
-            sprintf(a_folder, "%s%.*s", a_home, pos1 - pos0 - 1, buf + pos0 + 1);
+            pos0 ++;
         }
         else
         {
-            memcpy(a_folder, buf + pos0, pos1 - pos0);
-
-            a_folder[pos1 - pos0] = '\000';
+            pos0 = 0;
         }
 
-        p_folder = a_folder;
-    }
-    else
-    {
-        p_folder = ".";
-    }
+        /* Find the directory name */
 
-    static char * a_suggest[128u];
+        /* From beginning of word to last slash */
 
-    static int i_suggest;
+        int pos1;
 
-    i_suggest = 0;
-
-    DIR * d;
-
-    d = opendir(p_folder);
-
-    if (d)
-    {
-        while (1)
+        if (pos > 0)
         {
-            struct dirent * e;
+            pos1 = (int)(pos - 1);
 
-            e = readdir(d);
-            if (e)
+            while (pos1 >= pos0)
             {
-                if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
+                if (buf[pos1] == '/')
                 {
+                    break;
                 }
-                else if (0 == snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1))
+
+                pos1 --;
+            }
+
+            pos1++;
+        }
+        else
+        {
+            pos1 = 0;
+        }
+
+        char * p_folder;
+
+        if (pos1 > pos0)
+        {
+            a_folder[0u] = '\000';
+
+            if (buf[pos0] == '~')
+            {
+                sprintf(a_folder, "%s%.*s", a_home, pos1 - pos0 - 1, buf + pos0 + 1);
+            }
+            else
+            {
+                memcpy(a_folder, buf + pos0, pos1 - pos0);
+
+                a_folder[pos1 - pos0] = '\000';
+            }
+
+            p_folder = a_folder;
+        }
+        else
+        {
+            p_folder = ".";
+        }
+
+        i_suggest = 0;
+
+        /* completing a file name or full path to program */
+        if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
+        {
+            char * p_env;
+
+            p_env = getenv("PATH");
+
+            if (p_env)
+            {
+                /* split of buffer */
+                char * p_temp;
+
+                p_temp = strdup(p_env);
+
+                if (p_temp)
                 {
-                    if (!b_cmd_is_cd || (DT_DIR == e->d_type))
+                    char * p_comp;
+
+                    p_comp = strtok(p_temp, ":");
+
+                    while (p_comp)
                     {
-                        if (pos1 > 0)
-                        {
-                            sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
-                        }
-                        else
-                        {
-                            sprintf(suggest, "%s", e->d_name);
-                        }
+                        /* enumerate executables in path */
+                        DIR * p_dir_object;
 
-                        if (0 != strcmp(suggest, buf))
-                        {
-                            /* Do sort of suggestions */
+                        p_dir_object = opendir(p_comp);
 
+                        if (p_dir_object)
+                        {
+                            struct dirent * p_dir_entry;
+
+                            p_dir_entry = readdir(p_dir_object);
+
+                            while (p_dir_entry)
                             {
-                                int i;
-
-                                int j;
-
-                                char * p_temp;
-
-                                char b_inserted;
-
-                                i = 0;
-
-                                b_inserted = 0;
-
-                                while (!b_inserted && (i < i_suggest))
+                                if (DT_DIR != p_dir_entry->d_type)
                                 {
-                                    int i_compare;
-
-                                    i_compare = strcmp(suggest, a_suggest[i]);
-
-                                    if (0 == i_compare)
+                                    if (0 == strncmp(p_dir_entry->d_name, buf + pos1, pos - pos1))
                                     {
-                                        b_inserted = 1;
-                                    }
-                                    else if (0 > i_compare)
-                                    {
-                                        j = i_suggest;
-
-                                        while (j > i)
+                                        if (pos1 > 0)
                                         {
-                                            a_suggest[j] = a_suggest[j-1];
-
-                                            j--;
+                                            sprintf(suggest, "%.*s%s", pos1, buf, p_dir_entry->d_name);
+                                        }
+                                        else
+                                        {
+                                            sprintf(suggest, "%s", p_dir_entry->d_name);
                                         }
 
-                                        a_suggest[i] = strdup(suggest);
-
-                                        b_inserted = 1;
-
-                                        i_suggest ++;
-                                    }
-                                    else
-                                    {
-                                        i++;
+                                        if (0 != strcmp(suggest, buf))
+                                        {
+                                            snck_suggest_add(suggest);
+                                        }
                                     }
                                 }
 
-                                if (!b_inserted)
-                                {
-                                    a_suggest[i_suggest] = strdup(suggest);
+                                p_dir_entry = readdir(p_dir_object);
+                            }
 
-                                    i_suggest ++;
+                            closedir(p_dir_object);
+                        }
+
+                        p_comp = strtok(NULL, ":");
+                    }
+
+                    free(p_temp);
+                }
+            }
+        }
+        else
+        {
+            DIR * d;
+
+            d = opendir(p_folder);
+
+            if (d)
+            {
+                while (1)
+                {
+                    struct dirent * e;
+
+                    e = readdir(d);
+                    if (e)
+                    {
+                        if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
+                        {
+                        }
+                        else if (0 == snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1))
+                        {
+                            if (!b_cmd_is_cd || (DT_DIR == e->d_type))
+                            {
+                                if (pos1 > 0)
+                                {
+                                    sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
+                                }
+                                else
+                                {
+                                    sprintf(suggest, "%s", e->d_name);
+                                }
+
+                                if (0 != strcmp(suggest, buf))
+                                {
+                                    snck_suggest_add(suggest);
                                 }
                             }
                         }
                     }
+                    else
+                    {
+                        break;
+                    }
                 }
-            }
-            else
-            {
-                break;
+
+                closedir(d);
             }
         }
 
-        closedir(d);
-    }
-
-    /* If only one suggestion... */
-    if (0 == i_suggest)
-    {
-    }
-    else if (1 == i_suggest)
-    {
-        linenoiseAddCompletion(lc, a_suggest[0]);
-    }
-    else
-    {
-        int j;
-
-        int i;
-
-        /* Find common prefix for suggestions */
-        i = 1;
-
-        j = strlen(a_suggest[0]);
-
-        while (i < i_suggest)
+        /* If only one suggestion... */
+        if (0 == i_suggest)
         {
-            int k;
+        }
+        else if (1 == i_suggest)
+        {
+            linenoiseAddCompletion(lc, a_suggest[0]);
+        }
+        else
+        {
+            int j;
 
-            /* Find new common length */
-            k = 0;
+            int i;
 
-            while ((k < j) && a_suggest[0][k] && (a_suggest[0][k] == a_suggest[i][k]))
+            /* Find common prefix for suggestions */
+            i = 1;
+
+            j = strlen(a_suggest[0]);
+
+            while (i < i_suggest)
             {
-                k++;
+                int k;
+
+                /* Find new common length */
+                k = 0;
+
+                while ((k < j) && a_suggest[0][k] && (a_suggest[0][k] == a_suggest[i][k]))
+                {
+                    k++;
+                }
+
+                j = k;
+
+                i ++;
             }
 
-            j = k;
-
-            i ++;
-        }
-
-        if ((j != strlen(a_suggest[0])) && (j > strlen(buf)))
-        {
-            /* suggest only common prefix... */
-            strcpy(suggest, a_suggest[0]);
-
-            suggest[j] = '\000';
-
-            linenoiseAddCompletion(lc, suggest);
-        }
-
-        /* Merge list of suggestions into linenoise */
-        i = 0;
-
-        while (i < i_suggest)
-        {
-            if (a_suggest[i])
+            if ((j != strlen(a_suggest[0])) && (j > strlen(buf)))
             {
-                linenoiseAddCompletion(lc, a_suggest[i]);
+                /* suggest only common prefix... */
+                strcpy(suggest, a_suggest[0]);
 
-                free(a_suggest[i]);
+                suggest[j] = '\000';
 
-                a_suggest[i] = NULL;
+                linenoiseAddCompletion(lc, suggest);
             }
 
-            i++;
+            /* Merge list of suggestions into linenoise */
+            i = 0;
+
+            while (i < i_suggest)
+            {
+                if (a_suggest[i])
+                {
+                    linenoiseAddCompletion(lc, a_suggest[i]);
+
+                    free(a_suggest[i]);
+
+                    a_suggest[i] = NULL;
+                }
+
+                i++;
+            }
+
+            i_suggest = 0;
         }
     }
-
 
 } /* snck_completion */
 
