@@ -29,6 +29,9 @@ Description:
 /* Information */
 #include "snck_info.h"
 
+/* Password database */
+#include "snck_passwd.h"
+
 /* */
 #if defined(SNCK_FEATURE_LINENOISE)
 #include <linenoise.h>
@@ -41,6 +44,8 @@ static struct snck_ctxt * p_ctxt;
 static struct snck_info o_info;
 
 static struct snck_heap o_heap;
+
+static struct snck_passwd o_passwd;
 
 static char a_split[65536u];
 
@@ -337,13 +342,15 @@ snck_fork_and_exec(void)
         }
         while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
 
-        int iExitCode;
-
-        iExitCode = WEXITSTATUS(resultStatus);
-
-        if (iExitCode)
         {
-            fprintf(stderr, "snck: error code is %d\n", iExitCode);
+            int iExitCode;
+
+            iExitCode = WEXITSTATUS(resultStatus);
+
+            if (iExitCode)
+            {
+                fprintf(stderr, "snck: error code is %d\n", iExitCode);
+            }
         }
 
         b_result = 1;
@@ -621,7 +628,7 @@ snck_fuzzy_compare(
         i_ref2 = 0;
 
         /* try to find each letter of p_ref2[0:i_len-1] within p_ref1 */
-        while ((i_ref1 < strlen(p_ref1)) && (i_ref2 < i_len))
+        while ((i_ref1 < (int)(strlen(p_ref1))) && (i_ref2 < i_len))
         {
             /* Look for a letter */
             if (p_ref1[i_ref1] == p_ref2[i_ref2])
@@ -659,8 +666,6 @@ snck_suggest_add(
         int i;
 
         int j;
-
-        char * p_temp;
 
         char b_inserted;
 
@@ -724,22 +729,22 @@ snck_completion(
     /* locate words before and words after */
     /* complete entire line and replace word with other ... */
 
+    int i_cmd_prefix;
+
+    char b_cmd_is_cd;
+
 #if 0
     strcpy(a_split, buf);
 
     snck_tokenize_line();
 #endif
 
-    int i_cmd_prefix;
-
     i_cmd_prefix = 0;
 
-    while ((i_cmd_prefix <= pos) && (buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t'))
+    while ((i_cmd_prefix <= (int)(pos)) && ((buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t')))
     {
         i_cmd_prefix ++;
     }
-
-    char b_cmd_is_cd;
 
     b_cmd_is_cd = 0;
 
@@ -756,7 +761,7 @@ snck_completion(
             {
                 i_cmd_it ++;
 
-                if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
+                if ((i_cmd_it <= (int)(pos)) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
                 {
                     b_cmd_is_cd = 1;
                 }
@@ -764,9 +769,13 @@ snck_completion(
         }
     }
 
-    if (pos > i_cmd_prefix)
+    if ((int)(pos) > i_cmd_prefix)
     {
+        char * p_folder;
+
         int pos0;
+
+        int pos1;
 
         if (pos > 0)
         {
@@ -793,8 +802,6 @@ snck_completion(
 
         /* From beginning of word to last slash */
 
-        int pos1;
-
         if (pos > 0)
         {
             pos1 = (int)(pos - 1);
@@ -815,8 +822,6 @@ snck_completion(
         {
             pos1 = 0;
         }
-
-        char * p_folder;
 
         if (pos1 > pos0)
         {
@@ -994,7 +999,7 @@ snck_completion(
                 i ++;
             }
 
-            if ((j != strlen(a_suggest[0])) && (j > strlen(buf)))
+            if ((j != (int)(strlen(a_suggest[0]))) && (j > (int)(strlen(buf))))
             {
                 /* suggest only common prefix... */
                 strcpy(suggest, a_suggest[0]);
@@ -1197,8 +1202,12 @@ snck_main(
 
         p_ctxt->p_info = &(o_info);
 
+        p_ctxt->p_passwd = &(o_passwd);
+
         if (snck_heap_init(p_ctxt))
         {
+            snck_passwd_init(p_ctxt);
+
             if (snck_info_init(p_ctxt))
             {
                 /* install a SIGCHLD handler */
@@ -1233,6 +1242,8 @@ snck_main(
             {
                 i_exit_status = 1;
             }
+
+            snck_passwd_cleanup(p_ctxt);
 
             snck_heap_cleanup(p_ctxt);
         }

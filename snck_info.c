@@ -25,9 +25,15 @@ Description:
 /* Context */
 #include "snck_ctxt.h"
 
+/* Heap */
+#include "snck_heap.h"
+
+/* Password database */
+#include "snck_passwd.h"
+
 static
 char
-snck_info_detect_user_and_home(
+snck_info_detect_user(
     struct snck_ctxt const * const
         p_ctxt)
 {
@@ -36,103 +42,32 @@ snck_info_detect_user_and_home(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    char * p_env;
-
-    char b_found_user = 0;
-
-    char b_found_home = 0;
-
     b_result = 1;
 
-    if (b_result && !b_found_user)
+    if (b_result)
     {
-        p_env = getenv("USER");
+        char * p_env = getenv("USER");
 
         if (p_env)
         {
             b_result = snck_string_copy(p_ctxt, &(p_info->o_user), p_env);
-
-            if (b_result)
-            {
-                b_found_user = 1;
-            }
         }
-    }
-
-    if (b_result && !b_found_home)
-    {
-        p_env = getenv("HOME");
-
-        if (p_env)
+        else
         {
-            b_result = snck_string_copy(p_ctxt, &(p_info->o_home), p_env);
+            struct passwd * const pw = snck_passwd_get(p_ctxt);
 
-            if (b_result)
-            {
-                b_found_home = 1;
-            }
-        }
-    }
-
-    if (b_result && (!b_found_user || !b_found_home))
-    {
-        uid_t id;
-
-        struct passwd * pw;
-
-        id = getuid();
-
-        pw = getpwuid(id);
-
-        if (pw)
-        {
-            if (b_result && !b_found_user)
+            if (pw)
             {
                 b_result = snck_string_copy(p_ctxt, &(p_info->o_user), pw->pw_name);
-
-                if (b_result)
-                {
-                    b_found_user = 1;
-                }
             }
-
-            if (b_result && !b_found_home)
+            else
             {
-                b_result = snck_string_copy(p_ctxt, &(p_info->o_home), pw->pw_dir);
-
-                if (b_result)
-                {
-                    b_found_home = 1;
-                }
+                b_result = snck_string_copy(p_ctxt, &(p_info->o_user), "snck");
             }
         }
     }
 
-    if (b_result && !b_found_user)
-    {
-        b_result = snck_string_copy(p_ctxt, &(p_info->o_user), "snck");
-
-        if (b_result)
-        {
-            b_found_user = 1;
-        }
-    }
-
-    if (b_result && !b_found_home)
-    {
-        static char a_home[256u];
-
-        sprintf(a_home, "/home/%s", p_info->o_user.p_buf);
-
-        b_result = snck_string_copy(p_ctxt, &(p_info->o_home), a_home);
-
-        if (b_result)
-        {
-            b_found_home = 1;
-        }
-    }
-
-    if (b_result && b_found_user)
+    if (b_result)
     {
         if (0 == setenv("USER", p_info->o_user.p_buf, 1))
         {
@@ -143,7 +78,52 @@ snck_info_detect_user_and_home(
         }
     }
 
-    if (b_result && b_found_home)
+    return b_result;
+
+} /* snck_info_detect_user() */
+
+static
+char
+snck_info_detect_home(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    char b_result;
+
+    struct snck_info * const p_info =
+        p_ctxt->p_info;
+
+    b_result = 1;
+
+    if (b_result)
+    {
+        char * p_env = getenv("HOME");
+
+        if (p_env)
+        {
+            b_result = snck_string_copy(p_ctxt, &(p_info->o_home), p_env);
+        }
+        else
+        {
+            struct passwd * const pw = snck_passwd_get(p_ctxt);
+
+            if (pw)
+            {
+                b_result = snck_string_copy(p_ctxt, &(p_info->o_home), pw->pw_dir);
+            }
+            else
+            {
+                b_result = snck_string_copy(p_ctxt, &(p_info->o_home), "/home/");
+
+                if (b_result)
+                {
+                    b_result = snck_string_append_object(p_ctxt, &(p_info->o_home), &(p_info->o_user));
+                }
+            }
+        }
+    }
+
+    if (b_result)
     {
         if (0 == setenv("HOME", p_info->o_home.p_buf, 1))
         {
@@ -156,7 +136,7 @@ snck_info_detect_user_and_home(
 
     return b_result;
 
-} /* snck_info_detect_user_and_home() */
+} /* snck_info_detect_home() */
 
 static
 char
@@ -169,19 +149,34 @@ snck_info_detect_host(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    static char a_host[256u];
+    char * p_temp;
 
-    a_host[0u] = '\000';
+    p_temp = (char *)(snck_heap_realloc(p_ctxt, NULL, 256u));
 
-    if (0 == gethostname(a_host, sizeof(a_host)))
+    if (p_temp)
     {
+        p_temp[0u] = '\000';
+
+        if (0 == gethostname(p_temp, 255u))
+        {
+        }
+        else
+        {
+#if 0
+            fprintf(stderr, "gethostname error\n");
+#endif
+
+            strcpy(p_temp, "snck");
+        }
+
+        b_result = snck_string_copy(p_ctxt, &(p_info->o_host), p_temp);
+
+        snck_heap_realloc(p_ctxt, (void *)(p_temp), 0u);
     }
     else
     {
-        strcpy(a_host, "snck");
+        b_result = 0;
     }
-
-    b_result = snck_string_copy(p_ctxt, &(p_info->o_host), a_host);
 
     return b_result;
 
@@ -198,38 +193,65 @@ snck_info_detect_pwd(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    static char a_pwd[1024u];
+    size_t i_max_len;
 
-    a_pwd[0u] = '\000';
+    char b_retry;
 
-    if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
-    {
-    }
-    else
-    {
-        strcpy(a_pwd, "/");
-    }
+    b_result = 1;
 
-    if (0 == setenv("PWD", a_pwd, 1))
-    {
-    }
-    else
-    {
-    }
+    b_retry = 1;
 
-    b_result =
-        snck_string_copy(
-            p_ctxt,
-            &(p_info->o_pwd),
-            a_pwd);
+    i_max_len = 8u;
 
-    if (b_result)
+    while (b_result && b_retry)
     {
-        b_result =
-            snck_string_copy_object(
-                p_ctxt,
-                &(p_info->o_old_pwd),
-                &(p_info->o_pwd));
+        char * p_temp;
+
+        p_temp = snck_heap_realloc(p_ctxt, NULL, i_max_len);
+
+        if (p_temp)
+        {
+            if (NULL != getcwd(p_temp, i_max_len))
+            {
+                b_retry = 0;
+
+                if (0 == setenv("PWD", p_temp, 1))
+                {
+                }
+                else
+                {
+                    b_result = 0;
+                }
+
+                if (b_result)
+                {
+                    b_result =
+                        snck_string_copy(
+                            p_ctxt,
+                            &(p_info->o_pwd),
+                            p_temp);
+                }
+            }
+            else
+            {
+                if (ERANGE == errno)
+                {
+                    i_max_len <<= 1;
+
+                    b_retry = 1;
+                }
+                else
+                {
+                    b_result = 0;
+                }
+            }
+
+            snck_heap_realloc(p_ctxt, p_temp, 0u);
+        }
+        else
+        {
+            b_result = 0;
+        }
     }
 
     return b_result;
@@ -244,9 +266,23 @@ snck_info_detect(
 {
     char b_result;
 
-    b_result =
-        snck_info_detect_user_and_home(
-            p_ctxt);
+    b_result = 1;
+
+    if (
+        b_result)
+    {
+        b_result =
+            snck_info_detect_user(
+                p_ctxt);
+    }
+
+    if (
+        b_result)
+    {
+        b_result =
+            snck_info_detect_home(
+                p_ctxt);
+    }
 
     if (
         b_result)
@@ -254,14 +290,14 @@ snck_info_detect(
         b_result =
             snck_info_detect_host(
                 p_ctxt);
+    }
 
-        if (
-            b_result)
-        {
-            b_result =
-                snck_info_detect_pwd(
-                    p_ctxt);
-        }
+    if (
+        b_result)
+    {
+        b_result =
+            snck_info_detect_pwd(
+                p_ctxt);
     }
 
     return b_result;

@@ -93,6 +93,40 @@ snck_string_copy(
 } /* snck_string_init() */
 
 char
+snck_string_append(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    char const * const
+        p_ref)
+{
+    char b_result;
+
+    size_t i_ref_len = strlen(p_ref);
+
+    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, p_string->i_buf_len + i_ref_len + 1);
+
+    if (p_string->p_buf)
+    {
+        strcpy(p_string->p_buf + p_string->i_buf_len, p_ref);
+
+        p_string->i_buf_len += i_ref_len;
+
+        b_result = 1;
+    }
+    else
+    {
+        p_string->i_buf_len = 0u;
+
+        b_result = 0;
+    }
+
+    return b_result;
+
+} /* snck_string_append() */
+
+char
 snck_string_copy_object(
     struct snck_ctxt const * const
         p_ctxt,
@@ -125,5 +159,39 @@ snck_string_copy_object(
     return b_result;
 
 } /* snck_string_init() */
+
+char
+snck_string_append_object(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    struct snck_string const * const
+        p_object)
+{
+    char b_result;
+
+    size_t i_ref_len = p_object->i_buf_len;
+
+    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, p_string->i_buf_len + i_ref_len + 1);
+
+    if (p_string->p_buf)
+    {
+        strcpy(p_string->p_buf + p_string->i_buf_len, p_object->p_buf);
+
+        p_string->i_buf_len += i_ref_len;
+
+        b_result = 1;
+    }
+    else
+    {
+        p_string->i_buf_len = 0u;
+
+        b_result = 0;
+    }
+
+    return b_result;
+
+} /* snck_string_append_object() */
 
 /* end-of-file: snck_string.c */

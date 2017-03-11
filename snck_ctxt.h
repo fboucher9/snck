@@ -18,9 +18,11 @@ Description:
 #define INC_SNCK_CTXT_H
 
 /* Predefine module handles */
+struct snck_heap;
+
 struct snck_info;
 
-struct snck_heap;
+struct snck_passwd;
 
 /*
 
@@ -36,6 +38,8 @@ struct snck_ctxt
     struct snck_heap * p_heap;
 
     struct snck_info * p_info;
+
+    struct snck_passwd * p_passwd;
 
 }; /* struct snck_ctxt */
 

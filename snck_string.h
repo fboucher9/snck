@@ -61,7 +61,25 @@ snck_string_copy(
         p_ref);
 
 char
+snck_string_append(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    char const * const
+        p_ref);
+
+char
 snck_string_copy_object(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    struct snck_string const * const
+        p_object);
+
+char
+snck_string_append_object(
     struct snck_ctxt const * const
         p_ctxt,
     struct snck_string * const
