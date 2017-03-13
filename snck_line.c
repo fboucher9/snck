@@ -28,16 +28,17 @@ Description:
 /* Information */
 #include "snck_info.h"
 
+/* Prompt */
+#include "snck_prompt.h"
+
 /* */
 #if defined(SNCK_FEATURE_LINENOISE)
 #include <linenoise.h>
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
-extern struct snck_ctxt * g_ctxt;
+static struct snck_ctxt const * g_ctxt = NULL;
 
 static char a_split[65536u];
-
-static char a_prompt[4096u];
 
 static char a_folder[1024u];
 
@@ -74,123 +75,6 @@ snck_line_cleanup(
     (void)(p_ctxt);
 
 } /* snck_line_cleanup() */
-
-static
-void
-snck_build_prompt(
-    struct snck_ctxt const * const p_ctxt)
-{
-    char * p_ps1;
-
-    {
-        char * p_env;
-
-        p_env = getenv("PS1");
-
-        if (p_env)
-        {
-            p_ps1 = p_env;
-        }
-        else
-        {
-            p_ps1 = "\\u@\\h:\\w\\$ ";
-        }
-    }
-
-    {
-        char * p_in;
-
-        char * p_out;
-
-        int i_len;
-
-        p_in = p_ps1;
-
-        p_out = a_prompt;
-
-        while ('\000' != *p_in)
-        {
-            char c_in;
-
-            c_in = *p_in;
-
-            p_in ++;
-
-            if ('\\' == c_in)
-            {
-                if ('\000' != *p_in)
-                {
-                    c_in = *p_in;
-
-                    p_in ++;
-
-                    if ('u' == c_in)
-                    {
-                        i_len = p_ctxt->p_info->o_user.i_buf_len;
-                        memcpy(p_out, p_ctxt->p_info->o_user.p_buf, i_len);
-                        p_out += i_len;
-                    }
-                    else if ('h' == c_in)
-                    {
-                        i_len = p_ctxt->p_info->o_host.i_buf_len;
-                        memcpy(p_out, p_ctxt->p_info->o_host.p_buf, i_len);
-                        p_out += i_len;
-                    }
-                    else if ('w' == c_in)
-                    {
-                        if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
-                        {
-                            *p_out = '~';
-                            p_out ++;
-                            i_len = p_ctxt->p_info->o_pwd.i_buf_len - p_ctxt->p_info->o_home.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf + p_ctxt->p_info->o_home.i_buf_len, i_len);
-                            p_out += i_len;
-                        }
-                        else
-                        {
-                            i_len = p_ctxt->p_info->o_pwd.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf, i_len);
-                            p_out += i_len;
-                        }
-                    }
-                    else if ('$' == c_in)
-                    {
-                        *p_out = '$';
-
-                        p_out ++;
-                    }
-                    else if ('_' == c_in)
-                    {
-                        *p_out = ' ';
-
-                        p_out ++;
-                    }
-                    else
-                    {
-                        *p_out = c_in;
-
-                        p_out ++;
-                    }
-                }
-                else
-                {
-                    /* error */
-                }
-            }
-            else
-            {
-                *p_out = c_in;
-
-                p_out ++;
-            }
-        }
-
-        *p_out = '\000';
-
-        p_out ++;
-    }
-
-} /* snck_build_prompt() */
 
 #if defined(SNCK_FEATURE_LINENOISE)
 
@@ -625,63 +509,86 @@ snck_completion(
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
 char const *
-snck_line_read(
+snck_line_get(
     struct snck_ctxt const * const
         p_ctxt)
 {
     char b_result;
 
-    (void)(p_ctxt);
+    char const * p_prompt = snck_prompt_get(p_ctxt);
 
-    snck_build_prompt(p_ctxt);
+    if (p_prompt)
+    {
 
 #if defined(SNCK_FEATURE_LINENOISE)
-    {
-        char * p_temp;
-
-        errno = 0;
-
         {
-            if (!b_history_loaded)
+            char * p_temp;
+
+            errno = 0;
+
             {
-                sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
-
-                linenoiseHistoryLoad(a_history_file);
-
-                b_history_loaded = 1;
-            }
-        }
-
-        linenoiseSetCompletionCallback(snck_completion);
-
-        p_temp = linenoise(a_prompt);
-
-        if (p_temp)
-        {
-            if (' ' != p_temp[0u])
-            {
-                /* Detect duplicate entries... */
-
-                if (linenoiseHistoryAdd(p_temp))
+                if (!b_history_loaded)
                 {
-                    linenoiseHistorySave(a_history_file);
+                    sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
+
+                    linenoiseHistoryLoad(a_history_file);
+
+                    b_history_loaded = 1;
                 }
             }
 
-            strcpy(a_split, p_temp);
+            linenoiseSetCompletionCallback(snck_completion);
 
-            b_result = 1;
+            g_ctxt = p_ctxt;
 
-            free(p_temp);
-        }
-        else
-        {
-            if (errno == EAGAIN)
+            p_temp = linenoise(p_prompt);
+
+            g_ctxt = NULL;
+
+            if (p_temp)
             {
-                /* ctrl+c was pressed */
-                a_split[0] = '\n';
+                if (' ' != p_temp[0u])
+                {
+                    /* Detect duplicate entries... */
 
-                a_split[1] = '\000';
+                    if (linenoiseHistoryAdd(p_temp))
+                    {
+                        linenoiseHistorySave(a_history_file);
+                    }
+                }
+
+                strcpy(a_split, p_temp);
+
+                b_result = 1;
+
+                free(p_temp);
+            }
+            else
+            {
+                if (errno == EAGAIN)
+                {
+                    /* ctrl+c was pressed */
+                    a_split[0] = '\n';
+
+                    a_split[1] = '\000';
+
+                    b_result = 1;
+                }
+                else
+                {
+                    b_result = 0;
+                }
+            }
+        }
+#else /* #if defined(SNCK_FEATURE_LINENOISE) */
+        {
+            fprintf(stdout, "%s", p_prompt);
+
+            fflush(stdout);
+
+            if (NULL != fgets(a_split, sizeof(a_split) - 1u, stdin))
+            {
+                a_split[sizeof(a_split) - 1u] = '\0';
 
                 b_result = 1;
             }
@@ -690,25 +597,14 @@ snck_line_read(
                 b_result = 0;
             }
         }
-    }
-#else /* #if defined(SNCK_FEATURE_LINENOISE) */
-    {
-        fprintf(stdout, "%s", a_prompt);
-
-        fflush(stdout);
-
-        if (NULL != fgets(a_split, sizeof(a_split) - 1u, stdin))
-        {
-            a_split[sizeof(a_split) - 1u] = '\0';
-
-            b_result = 1;
-        }
-        else
-        {
-            b_result = 0;
-        }
-    }
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
+        snck_prompt_put(p_ctxt, p_prompt);
+    }
+    else
+    {
+        b_result = 0;
+    }
 
 #if 0
     if (!b_result)
@@ -726,6 +622,17 @@ snck_line_read(
         return NULL;
     }
 
-} /* snck_line_read() */
+} /* snck_line_get() */
+
+void
+snck_line_put(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char const * const
+        p_buf)
+{
+    (void)(p_ctxt);
+    (void)(p_buf);
+} /* snck_line_put() */
 
 /* end-of-file: snck_line.c */

@@ -41,6 +41,8 @@ struct snck_ctxt
 
     struct snck_passwd * p_passwd;
 
+    struct snck_line * p_line;
+
 }; /* struct snck_ctxt */
 
 /* end-of-file: snck_ctxt.h */

@@ -19,6 +19,7 @@ SNCK_SRCS = \
     $(SNCK_SRC_PATH)/snck_heap.c \
     $(SNCK_SRC_PATH)/snck_passwd.c \
     $(SNCK_SRC_PATH)/snck_line.c \
+    $(SNCK_SRC_PATH)/snck_prompt.c \
     $(SNCK_SRC_PATH)/snck_os.c
 
 SNCK_LIBS =

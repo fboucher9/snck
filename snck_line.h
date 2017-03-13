@@ -46,8 +46,15 @@ snck_line_cleanup(
         p_ctxt);
 
 char const *
-snck_line_read(
+snck_line_get(
     struct snck_ctxt const * const
         p_ctxt);
+
+void
+snck_line_put(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char const * const
+        p_buf);
 
 /* end-of-file: snck_line.h */

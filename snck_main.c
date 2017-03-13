@@ -35,19 +35,21 @@ Description:
 /* Line editor */
 #include "snck_line.h"
 
-static struct snck_ctxt o_ctxt;
+struct snck_main_ctxt
+{
+    struct snck_ctxt o_ctxt;
 
-extern struct snck_ctxt * g_ctxt;
+    struct snck_heap o_heap;
 
-struct snck_ctxt * g_ctxt = NULL;
+    struct snck_passwd o_passwd;
 
-static struct snck_info o_info;
+    struct snck_info o_info;
 
-static struct snck_heap o_heap;
+    struct snck_line o_line;
 
-static struct snck_passwd o_passwd;
+}; /* struct snck_main_ctxt */
 
-static char a_line[65536u];
+static struct snck_main_ctxt o_main_ctxt;
 
 static char * g_argv[1024u];
 
@@ -175,6 +177,8 @@ snck_builtin_cd(
 #if 0 /* expand takes care of home folder */
             if ('~' == p_args[i_args_it])
             {
+                static char a_line[65536u];
+
                 sprintf(a_line, "%s%s", p_ctxt->p_info->o_home.p_buf, p_args + i_args_it + 1);
 
                 p_path = a_line;
@@ -444,22 +448,26 @@ snck_builtin_shell(
 
 static
 char
-snck_fork_and_exec(void)
+snck_fork_and_exec(
+    struct snck_ctxt const * const p_ctxt,
+    char const * const p_line)
 {
     char b_result;
 
     pid_t iChildProcess;
+
+    (void)(p_ctxt);
 
     g_argv[0u] = "/bin/sh";
 
     g_argv[1u] = "-c";
 
     /* detect if exec is possible */
-    if (strchr(a_line, ';') ||
-        strchr(a_line, '&') ||
-        strchr(a_line, '|'))
+    if (strchr(p_line, ';') ||
+        strchr(p_line, '&') ||
+        strchr(p_line, '|'))
     {
-        g_argv[2u] = a_line;
+        g_argv[2u] = (char *)(p_line);
 
         g_argv[3u] = NULL;
     }
@@ -467,7 +475,7 @@ snck_fork_and_exec(void)
     {
         static char a_split[65536u];
 
-        sprintf(a_split, "exec %s", a_line);
+        sprintf(a_split, "exec %s", p_line);
 
         g_argv[2u] = a_split;
 
@@ -539,29 +547,39 @@ snck_execute_child(
             /* Empty line */
             b_result = 1;
         }
-        else if (0 == strncmp(p_cmd, "cd", i_cmd_len))
+        else if ((2 == i_cmd_len) && (0 == strncmp(p_cmd, "cd", i_cmd_len)))
         {
             b_result = snck_builtin_cd(p_ctxt, p_cmd + i_cmd_len);
         }
-        else if (0 == strncmp(p_cmd, "set", i_cmd_len))
+        else if ((3 == i_cmd_len) && (0 == strncmp(p_cmd, "set", i_cmd_len)))
         {
             b_result = snck_builtin_set(p_cmd + i_cmd_len);
         }
-        else if (0 == strncmp(p_cmd, "unset", i_cmd_len))
+        else if ((5 == i_cmd_len) && (0 == strncmp(p_cmd, "unset", i_cmd_len)))
         {
             b_result = snck_builtin_unset(p_cmd + i_cmd_len);
         }
-        else if (0 == strncmp(p_cmd, "shell", i_cmd_len))
+        else if ((5 == i_cmd_len) && (0 == strncmp(p_cmd, "shell", i_cmd_len)))
         {
             b_result = snck_builtin_shell(p_cmd + i_cmd_len);
         }
-        else if ((0 == strncmp(p_cmd, "exit", i_cmd_len)) || (0 == strncmp(p_cmd, "logout", i_cmd_len)))
+        else if (
+            (
+                (
+                    4 == i_cmd_len)
+                && (
+                    0 == strncmp(p_cmd, "exit", i_cmd_len)))
+            || (
+                (
+                    6 == i_cmd_len)
+                && (
+                    0 == strncmp(p_cmd, "logout", i_cmd_len))))
         {
             exit(0);
         }
         else
         {
-            b_result = snck_fork_and_exec();
+            b_result = snck_fork_and_exec(p_ctxt, p_line);
         }
     }
     else
@@ -573,60 +591,24 @@ snck_execute_child(
 
 } /* snck_execute_child() */
 
-/*
-
-Function: snck_process_line
-
-Description:
-
-*/
-static
-char
-snck_process_line(
-    struct snck_ctxt const * const p_ctxt,
-    char const * const p_line)
-{
-    char b_result;
-
-    /* tokenize the input buffer */
-    /* token is word or function or mix of both: */
-    /* word */
-    /* [function] */
-    /* wo[func][func]rd */
-    /* wo[sp]rd */
-
-    strcpy(a_line, p_line);
-
-    /* expand of functions */
-
-    b_result = snck_execute_child(p_ctxt, p_line);
-
-    return b_result;
-
-} /* snck_process_line() */
-
 static
 char
 snck_read_file(
     struct snck_ctxt const * const p_ctxt)
 {
-    char b_result;
+    char b_result = 1;
 
-    char b_continue;
-
-    char const * p_line;
-
-    b_result = 1;
-
-    b_continue = 1;
+    char b_continue = 1;
 
     while (b_result && b_continue)
     {
-        p_line = snck_line_read(p_ctxt);
+        char const * p_line;
+
+        p_line = snck_line_get(p_ctxt);
 
         if (p_line)
         {
-            if (snck_process_line(p_ctxt, p_line))
+            if (snck_execute_child(p_ctxt, p_line))
             {
             }
             else
@@ -635,6 +617,8 @@ snck_read_file(
 
                 b_continue = 0;
             }
+
+            snck_line_put(p_ctxt, p_line);
         }
         else
         {
@@ -649,6 +633,90 @@ static void snck_sigchld(int unused)
 {
     (void)(unused);
     while (0 < waitpid(-1, NULL, WNOHANG));
+}
+
+static
+char
+snck_main_init(
+    struct snck_main_ctxt * const
+        p_main)
+{
+    char b_result;
+
+    struct snck_ctxt * p_ctxt;
+
+    p_ctxt = &(p_main->o_ctxt);
+
+    p_ctxt->p_heap = &(p_main->o_heap);
+
+    p_ctxt->p_passwd = &(p_main->o_passwd);
+
+    p_ctxt->p_info = &(p_main->o_info);
+
+    p_ctxt->p_line = &(p_main->o_line);
+
+    if (snck_heap_init(p_ctxt))
+    {
+        snck_passwd_init(p_ctxt);
+
+        if (snck_info_init(p_ctxt))
+        {
+            /* install a SIGCHLD handler */
+            signal(SIGCHLD, snck_sigchld);
+
+            signal(SIGINT, SIG_IGN);
+
+            signal(SIGHUP, SIG_IGN);
+
+            /* signal(SIGTSTP, SIG_IGN); */
+
+            unsetenv("SHLVL");
+
+            unsetenv("_");
+
+            unsetenv("MAIL");
+
+            unsetenv("OLDPWD");
+
+            snck_line_init(p_ctxt);
+
+            b_result = 1;
+        }
+        else
+        {
+            b_result = 0;
+        }
+
+        if (!b_result)
+        {
+            snck_heap_cleanup(p_ctxt);
+        }
+    }
+    else
+    {
+        b_result = 0;
+    }
+
+    return b_result;
+
+} /* snck_main_init() */
+
+static
+void
+snck_main_cleanup(
+    struct snck_main_ctxt * const
+        p_main)
+{
+    struct snck_ctxt const * const p_ctxt =
+        &(p_main->o_ctxt);
+
+    snck_line_cleanup(p_ctxt);
+
+    snck_info_cleanup(p_ctxt);
+
+    snck_passwd_cleanup(p_ctxt);
+
+    snck_heap_cleanup(p_ctxt);
 }
 
 /*
@@ -676,60 +744,24 @@ snck_main(
     }
     else
     {
-        g_ctxt = &(o_ctxt);
+        struct snck_main_ctxt * const p_main =
+            &(o_main_ctxt);
 
-        g_ctxt->p_heap = &(o_heap);
-
-        g_ctxt->p_info = &(o_info);
-
-        g_ctxt->p_passwd = &(o_passwd);
-
-        if (snck_heap_init(g_ctxt))
+        if (snck_main_init(p_main))
         {
-            snck_passwd_init(g_ctxt);
+            struct snck_ctxt const * const p_ctxt =
+                &(p_main->o_ctxt);
 
-            if (snck_info_init(g_ctxt))
+            if (snck_read_file(p_ctxt))
             {
-                /* install a SIGCHLD handler */
-                signal(SIGCHLD, snck_sigchld);
-
-                signal(SIGINT, SIG_IGN);
-
-                signal(SIGHUP, SIG_IGN);
-
-                /* signal(SIGTSTP, SIG_IGN); */
-
-                unsetenv("SHLVL");
-
-                unsetenv("_");
-
-                unsetenv("MAIL");
-
-                unsetenv("OLDPWD");
-
-                snck_line_init(g_ctxt);
-
-                if (snck_read_file(g_ctxt))
-                {
-                    i_exit_status = 0;
-                }
-                else
-                {
-                    i_exit_status = 1;
-                }
-
-                snck_line_cleanup(g_ctxt);
-
-                snck_info_cleanup(g_ctxt);
+                i_exit_status = 0;
             }
             else
             {
                 i_exit_status = 1;
             }
 
-            snck_passwd_cleanup(g_ctxt);
-
-            snck_heap_cleanup(g_ctxt);
+            snck_main_cleanup(p_main);
         }
         else
         {
