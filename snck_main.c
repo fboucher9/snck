@@ -70,35 +70,134 @@ static char * a_suggest[128u];
 static int i_suggest = 0;
 
 static
+int
+snck_find_word_begin(
+    char const * p_args)
+{
+    int i_args_it = 0;
+
+    while ((p_args[i_args_it] == ' ') || (p_args[i_args_it] == '\t'))
+    {
+        i_args_it ++;
+    }
+
+    return i_args_it;
+}
+
+int
+snck_find_word_end(
+    char const * p_args)
+{
+    int i_args_it = 0;
+
+    while (p_args[i_args_it] && (' ' != p_args[i_args_it]) && ('\t' != p_args[i_args_it]))
+    {
+        i_args_it ++;
+    }
+
+    return i_args_it;
+}
+
+static
 char
-snck_builtin_cd(void)
+snck_find_word(
+    char const * p_args,
+    char const * * p_word_buf,
+    int * p_word_len)
+{
+    char b_found;
+
+    int i_args_it = snck_find_word_begin(p_args);
+
+    if (p_args[i_args_it])
+    {
+        *p_word_buf = p_args + i_args_it;
+
+        *p_word_len = snck_find_word_end(p_args + i_args_it);
+
+        b_found = 1;
+    }
+    else
+    {
+        b_found = 0;
+    }
+
+    return b_found;
+
+} /* snck_find_word() */
+
+static
+char const *
+snck_expand(
+    char const * p_ref)
+{
+    /* Use sh -c 'echo ...' to expand the argument */
+    static char a_command[4096u];
+
+    char const * p_path;
+
+    sprintf(a_command, "sh -c \'echo -n %s\'", p_ref);
+
+    {
+        FILE * p_pipe = popen(a_command, "r");
+
+        if (p_pipe)
+        {
+            if (NULL != fgets(a_command, sizeof(a_command)-1, p_pipe))
+            {
+                p_path = a_command;
+            }
+            else
+            {
+                p_path = p_ref;
+            }
+
+            pclose(p_pipe);
+        }
+        else
+        {
+            p_path = p_ref;
+        }
+    }
+
+    return p_path;
+}
+
+static
+char
+snck_builtin_cd(char const * p_args)
 {
     char b_result;
 
     int i_result;
 
-    char * p_path;
+    char const * p_path = NULL;
 
-    p_path = NULL;
+    int i_args_it = snck_find_word_begin(p_args);
 
-    if (g_argc > 0u)
+    if (p_args[i_args_it])
     {
-        if (0 == strcmp(g_argv[0u], "-"))
+        if (0 == strcmp(p_args + i_args_it, "-"))
         {
             p_path = p_ctxt->p_info->o_old_pwd.p_buf;
         }
         else
         {
-            if ('~' == g_argv[0u][0u])
+            /* Use sh -c 'echo ...' to expand the argument */
+            p_path = snck_expand(p_args + i_args_it);
+
+#if 0 /* expand takes care of home folder */
+            if ('~' == p_args[i_args_it])
             {
-                sprintf(a_line, "%s%s", p_ctxt->p_info->o_home.p_buf, g_argv[0u] + 1);
+                sprintf(a_line, "%s%s", p_ctxt->p_info->o_home.p_buf, p_args + i_args_it + 1);
 
                 p_path = a_line;
             }
             else
             {
-                p_path = g_argv[0u];
+                p_path = p_args + i_args_it;
             }
+#endif /* expand takes care of home folder */
         }
     }
     else
@@ -176,43 +275,59 @@ extern char ** environ;
 
 static
 char
-snck_builtin_set(void)
+snck_builtin_set(
+    char const * p_args)
 {
     char b_result;
 
     int i_result;
 
-    if (g_argc > 0u)
+    char const * p_name;
+
+    int i_name_len;
+
+    if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        char * p_name;
+        static char a_name[256u];
 
-        p_name = g_argv[0u];
-
-        if (g_argc > 1u)
+        if ((size_t)(i_name_len) < sizeof(a_name))
         {
-            char * p_value;
+            memcpy(a_name, p_name, i_name_len);
 
-            p_value = g_argv[1u];
+            a_name[i_name_len] = '\000';
 
-            i_result = setenv(p_name, p_value, 1);
+            i_name_len += snck_find_word_begin(p_name + i_name_len);
 
-            (void)(i_result);
-        }
-        else
-        {
-            /* */
-            char * p_value;
-
-            p_value = getenv(p_name);
-
-            if (p_value)
+            if (p_name[i_name_len])
             {
-                fprintf(stdout, "%s\n", p_value);
+                char const * p_value;
+
+                p_value = snck_expand(p_name + i_name_len);
+
+                i_result = setenv(a_name, p_value, 1);
+
+                (void)(i_result);
             }
             else
             {
-                fprintf(stderr, "not set\n");
+                /* */
+                char * p_value;
+
+                p_value = getenv(a_name);
+
+                if (p_value)
+                {
+                    fprintf(stdout, "%s\n", p_value);
+                }
+                else
+                {
+                    fprintf(stderr, "not set\n");
+                }
             }
+        }
+        else
+        {
+            fprintf(stderr, "snck: name too long\n");
         }
     }
     else
@@ -238,21 +353,35 @@ snck_builtin_set(void)
 
 static
 char
-snck_builtin_unset(void)
+snck_builtin_unset(
+    char const * p_args)
 {
     char b_result;
 
     int i_result;
 
-    if (g_argc > 0u)
+    char const * p_name;
+
+    int i_name_len;
+
+    if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        char * p_name;
+        static char a_name[256u];
 
-        p_name = g_argv[0u];
+        if ((size_t)(i_name_len) < sizeof(a_name))
+        {
+            memcpy(a_name, p_name, i_name_len);
 
-        i_result = unsetenv(p_name);
+            a_name[i_name_len] = '\000';
 
-        (void)(i_result);
+            i_result = unsetenv(a_name);
+
+            (void)(i_result);
+        }
+        else
+        {
+            fprintf(stderr, "snck: name too long\n");
+        }
     }
     else
     {
@@ -264,14 +393,52 @@ snck_builtin_unset(void)
 
 } /* snck_builtin_unset() */
 
+#if 0
 static
 char
-snck_builtin_shell(void)
+snck_tokenize_line(
+    char * p_line)
 {
     char b_result;
 
-    if (g_argc > 0u)
+    g_argc = 0u;
+
+    g_argv[g_argc] = strtok(p_line, " \t\n");
+
+    if (g_argv[g_argc])
     {
+        while (g_argv[g_argc])
+        {
+            g_argc ++;
+
+            g_argv[g_argc] = strtok(NULL, " \t\n");
+        }
+    }
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_tokenize_line() */
+#endif
+
+static
+char
+snck_builtin_shell(
+    char const * p_args)
+{
+    char b_result;
+
+    int i_args_it = snck_find_word_begin(p_args);
+
+    if (p_args[i_args_it])
+    {
+        g_argv[0u] = (char *)(p_args + i_args_it);
+
+        g_argv[1u] = NULL;
+
+        g_argc = 1;
+
         execvp(g_argv[0u], g_argv);
 
         fprintf(stderr, "unable to replace shell\n");
@@ -362,96 +529,50 @@ snck_fork_and_exec(void)
 
 static
 char
-snck_tokenize_line(
-    char * p_line)
-{
-    char b_result;
-
-    g_argc = 0u;
-
-    g_argv[g_argc] = strtok(p_line, " \t\n");
-
-    if (g_argv[g_argc])
-    {
-        while (g_argv[g_argc])
-        {
-            g_argc ++;
-
-            g_argv[g_argc] = strtok(NULL, " \t\n");
-        }
-    }
-
-    b_result = 1;
-
-    return b_result;
-
-} /* snck_tokenize_line() */
-
-static
-char
 snck_execute_child(void)
 {
     char b_result;
 
-    char * p_cmd;
+    char const * p_cmd;
 
-    unsigned int i_cmd_len;
+    int i_cmd_len;
 
-    p_cmd = a_split;
-
-    while ((' ' == *p_cmd) || ('\t' == *p_cmd))
+    if (snck_find_word(a_split, &(p_cmd), &(i_cmd_len)))
     {
-        p_cmd ++;
-    }
-
-    i_cmd_len = 0u;
-
-    while (('\000' != p_cmd[i_cmd_len]) && (' ' != p_cmd[i_cmd_len]) && ('\t' != p_cmd[i_cmd_len]))
-    {
-        i_cmd_len ++;
-    }
-
-    if ('#' == p_cmd[0u])
-    {
-        /* This is a comment line */
-        b_result = 1;
-    }
-    else if (0 == i_cmd_len)
-    {
-        /* Empty line */
-        b_result = 1;
-    }
-    else if (0 == strncmp(p_cmd, "cd", i_cmd_len))
-    {
-        snck_tokenize_line(p_cmd + i_cmd_len);
-
-        b_result = snck_builtin_cd();
-    }
-    else if (0 == strncmp(p_cmd, "set", i_cmd_len))
-    {
-        snck_tokenize_line(p_cmd + i_cmd_len);
-
-        b_result = snck_builtin_set();
-    }
-    else if (0 == strncmp(p_cmd, "unset", i_cmd_len))
-    {
-        snck_tokenize_line(p_cmd + i_cmd_len);
-
-        b_result = snck_builtin_unset();
-    }
-    else if (0 == strncmp(p_cmd, "shell", i_cmd_len))
-    {
-        snck_tokenize_line(p_cmd + i_cmd_len);
-
-        b_result = snck_builtin_shell();
-    }
-    else if ((0 == strncmp(p_cmd, "exit", i_cmd_len)) || (0 == strncmp(p_cmd, "logout", i_cmd_len)))
-    {
-        exit(0);
-    }
-    else
-    {
-        b_result = snck_fork_and_exec();
+        if ('#' == p_cmd[0u])
+        {
+            /* This is a comment line */
+            b_result = 1;
+        }
+        else if (0 == i_cmd_len)
+        {
+            /* Empty line */
+            b_result = 1;
+        }
+        else if (0 == strncmp(p_cmd, "cd", i_cmd_len))
+        {
+            b_result = snck_builtin_cd(p_cmd + i_cmd_len);
+        }
+        else if (0 == strncmp(p_cmd, "set", i_cmd_len))
+        {
+            b_result = snck_builtin_set(p_cmd + i_cmd_len);
+        }
+        else if (0 == strncmp(p_cmd, "unset", i_cmd_len))
+        {
+            b_result = snck_builtin_unset(p_cmd + i_cmd_len);
+        }
+        else if (0 == strncmp(p_cmd, "shell", i_cmd_len))
+        {
+            b_result = snck_builtin_shell(p_cmd + i_cmd_len);
+        }
+        else if ((0 == strncmp(p_cmd, "exit", i_cmd_len)) || (0 == strncmp(p_cmd, "logout", i_cmd_len)))
+        {
+            exit(0);
+        }
+        else
+        {
+            b_result = snck_fork_and_exec();
+        }
     }
 
     return b_result;
@@ -973,9 +1094,10 @@ snck_completion(
         }
         else
         {
-            int j;
-
             int i;
+
+#if 0
+            int j;
 
             /* Find common prefix for suggestions */
             i = 1;
@@ -1008,6 +1130,7 @@ snck_completion(
 
                 linenoiseAddCompletion(lc, suggest);
             }
+#endif
 
             /* Merge list of suggestions into linenoise */
             i = 0;
@@ -1094,10 +1217,6 @@ snck_read_line(void)
         }
         else
         {
-#if 0
-            fprintf(stderr, "... bye!\n");
-#endif
-
             b_result = 0;
         }
     }
@@ -1116,14 +1235,17 @@ snck_read_line(void)
     }
     else
     {
-#if 0
-        fprintf(stderr, "... bye!\n");
-#endif
-
         b_result = 0;
     }
 
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
+#if 0
+    if (!b_result)
+    {
+        fprintf(stderr, "... bye!\n");
+    }
+#endif
 
     return b_result;
 }
