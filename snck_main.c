@@ -564,6 +564,10 @@ snck_execute_child(
             b_result = snck_fork_and_exec();
         }
     }
+    else
+    {
+        b_result = 1;
+    }
 
     return b_result;
 
