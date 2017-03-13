@@ -32,14 +32,14 @@ Description:
 /* Password database */
 #include "snck_passwd.h"
 
-/* */
-#if defined(SNCK_FEATURE_LINENOISE)
-#include <linenoise.h>
-#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+/* Line editor */
+#include "snck_line.h"
 
 static struct snck_ctxt o_ctxt;
 
-static struct snck_ctxt * p_ctxt;
+extern struct snck_ctxt * g_ctxt;
+
+struct snck_ctxt * g_ctxt = NULL;
 
 static struct snck_info o_info;
 
@@ -47,27 +47,11 @@ static struct snck_heap o_heap;
 
 static struct snck_passwd o_passwd;
 
-static char a_split[65536u];
-
 static char a_line[65536u];
-
-static char a_prompt[4096u];
-
-static char a_folder[1024u];
-
-static char suggest[1024u];
-
-static char a_history_file[1024u];
 
 static char * g_argv[1024u];
 
 static unsigned int g_argc = 0;
-
-static char b_history_loaded = 0;
-
-static char * a_suggest[128u];
-
-static int i_suggest = 0;
 
 static
 int
@@ -165,7 +149,9 @@ snck_expand(
 
 static
 char
-snck_builtin_cd(char const * p_args)
+snck_builtin_cd(
+    struct snck_ctxt const * const p_ctxt,
+    char const * p_args)
 {
     char b_result;
 
@@ -479,6 +465,8 @@ snck_fork_and_exec(void)
     }
     else
     {
+        static char a_split[65536u];
+
         sprintf(a_split, "exec %s", a_line);
 
         g_argv[2u] = a_split;
@@ -529,7 +517,9 @@ snck_fork_and_exec(void)
 
 static
 char
-snck_execute_child(void)
+snck_execute_child(
+    struct snck_ctxt const * const p_ctxt,
+    char const * const p_line)
 {
     char b_result;
 
@@ -537,7 +527,7 @@ snck_execute_child(void)
 
     int i_cmd_len;
 
-    if (snck_find_word(a_split, &(p_cmd), &(i_cmd_len)))
+    if (snck_find_word(p_line, &(p_cmd), &(i_cmd_len)))
     {
         if ('#' == p_cmd[0u])
         {
@@ -551,7 +541,7 @@ snck_execute_child(void)
         }
         else if (0 == strncmp(p_cmd, "cd", i_cmd_len))
         {
-            b_result = snck_builtin_cd(p_cmd + i_cmd_len);
+            b_result = snck_builtin_cd(p_ctxt, p_cmd + i_cmd_len);
         }
         else if (0 == strncmp(p_cmd, "set", i_cmd_len))
         {
@@ -588,7 +578,9 @@ Description:
 */
 static
 char
-snck_process_line(void)
+snck_process_line(
+    struct snck_ctxt const * const p_ctxt,
+    char const * const p_line)
 {
     char b_result;
 
@@ -599,664 +591,26 @@ snck_process_line(void)
     /* wo[func][func]rd */
     /* wo[sp]rd */
 
-    strcpy(a_line, a_split);
+    strcpy(a_line, p_line);
 
     /* expand of functions */
 
-    b_result = snck_execute_child();
+    b_result = snck_execute_child(p_ctxt, p_line);
 
     return b_result;
 
 } /* snck_process_line() */
 
 static
-void
-snck_build_prompt(void)
-{
-    char * p_ps1;
-
-    {
-        char * p_env;
-
-        p_env = getenv("PS1");
-
-        if (p_env)
-        {
-            p_ps1 = p_env;
-        }
-        else
-        {
-            p_ps1 = "\\u@\\h:\\w\\$ ";
-        }
-    }
-
-    {
-        char * p_in;
-
-        char * p_out;
-
-        int i_len;
-
-        p_in = p_ps1;
-
-        p_out = a_prompt;
-
-        while ('\000' != *p_in)
-        {
-            char c_in;
-
-            c_in = *p_in;
-
-            p_in ++;
-
-            if ('\\' == c_in)
-            {
-                if ('\000' != *p_in)
-                {
-                    c_in = *p_in;
-
-                    p_in ++;
-
-                    if ('u' == c_in)
-                    {
-                        i_len = p_ctxt->p_info->o_user.i_buf_len;
-                        memcpy(p_out, p_ctxt->p_info->o_user.p_buf, i_len);
-                        p_out += i_len;
-                    }
-                    else if ('h' == c_in)
-                    {
-                        i_len = p_ctxt->p_info->o_host.i_buf_len;
-                        memcpy(p_out, p_ctxt->p_info->o_host.p_buf, i_len);
-                        p_out += i_len;
-                    }
-                    else if ('w' == c_in)
-                    {
-                        if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
-                        {
-                            *p_out = '~';
-                            p_out ++;
-                            i_len = p_ctxt->p_info->o_pwd.i_buf_len - p_ctxt->p_info->o_home.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf + p_ctxt->p_info->o_home.i_buf_len, i_len);
-                            p_out += i_len;
-                        }
-                        else
-                        {
-                            i_len = p_ctxt->p_info->o_pwd.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf, i_len);
-                            p_out += i_len;
-                        }
-                    }
-                    else if ('$' == c_in)
-                    {
-                        *p_out = '$';
-
-                        p_out ++;
-                    }
-                    else if ('_' == c_in)
-                    {
-                        *p_out = ' ';
-
-                        p_out ++;
-                    }
-                    else
-                    {
-                        *p_out = c_in;
-
-                        p_out ++;
-                    }
-                }
-                else
-                {
-                    /* error */
-                }
-            }
-            else
-            {
-                *p_out = c_in;
-
-                p_out ++;
-            }
-        }
-
-        *p_out = '\000';
-
-        p_out ++;
-    }
-
-} /* snck_build_prompt() */
-
-#if defined(SNCK_FEATURE_LINENOISE)
-
-static
-int
-snck_fuzzy_compare(
-    char const * p_ref1,
-    char const * p_ref2,
-    int const i_len)
-{
-    int i_result;
-
-    int i_ref1;
-
-    int i_ref2;
-
-    if (i_len > 1)
-    {
-        i_result = 1;
-
-        i_ref1 = 0;
-
-        i_ref2 = 0;
-
-        /* try to find each letter of p_ref2[0:i_len-1] within p_ref1 */
-        while ((i_ref1 < (int)(strlen(p_ref1))) && (i_ref2 < i_len))
-        {
-            /* Look for a letter */
-            if (p_ref1[i_ref1] == p_ref2[i_ref2])
-            {
-                i_ref1 ++;
-                i_ref2 ++;
-            }
-            else
-            {
-                i_ref1 ++;
-            }
-        }
-
-        if (i_ref2 >= i_len)
-        {
-            i_result = 0;
-        }
-    }
-    else
-    {
-        i_result = strncmp(p_ref1, p_ref2, i_len);
-    }
-
-    return i_result;
-
-}
-
-static
-void
-snck_suggest_add(
-    char const * suggest)
-{
-    if (i_suggest < 128)
-    {
-        int i;
-
-        int j;
-
-        char b_inserted;
-
-        i = 0;
-
-        b_inserted = 0;
-
-        while (!b_inserted && (i < i_suggest))
-        {
-            int i_compare;
-
-            i_compare = strcmp(suggest, a_suggest[i]);
-
-            if (0 == i_compare)
-            {
-                b_inserted = 1;
-            }
-            else if (0 > i_compare)
-            {
-                /* Do sort of suggestions */
-
-                j = i_suggest;
-
-                while (j > i)
-                {
-                    a_suggest[j] = a_suggest[j-1];
-
-                    j--;
-                }
-
-                a_suggest[i] = strdup(suggest);
-
-                b_inserted = 1;
-
-                i_suggest ++;
-            }
-            else
-            {
-                i++;
-            }
-        }
-
-        if (!b_inserted)
-        {
-            a_suggest[i_suggest] = strdup(suggest);
-
-            i_suggest ++;
-        }
-    }
-}
-
-static
-void
-snck_completion(
-    char const * buf,
-    size_t pos,
-    linenoiseCompletions * lc)
-{
-    /* quick tokenize of current line */
-    /* find the word under the cursor */
-    /* locate words before and words after */
-    /* complete entire line and replace word with other ... */
-
-    int i_cmd_prefix;
-
-    char b_cmd_is_cd;
-
-#if 0
-    strcpy(a_split, buf);
-
-    snck_tokenize_line();
-#endif
-
-    i_cmd_prefix = 0;
-
-    while ((i_cmd_prefix <= (int)(pos)) && ((buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t')))
-    {
-        i_cmd_prefix ++;
-    }
-
-    b_cmd_is_cd = 0;
-
-    {
-        int i_cmd_it;
-
-        i_cmd_it = i_cmd_prefix;
-
-        if ('c' == buf[i_cmd_it])
-        {
-            i_cmd_it ++;
-
-            if ('d' == buf[i_cmd_it])
-            {
-                i_cmd_it ++;
-
-                if ((i_cmd_it <= (int)(pos)) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
-                {
-                    b_cmd_is_cd = 1;
-                }
-            }
-        }
-    }
-
-    if ((int)(pos) > i_cmd_prefix)
-    {
-        char * p_folder;
-
-        int pos0;
-
-        int pos1;
-
-        if (pos > 0)
-        {
-            pos0 = (int)(pos - 1);
-
-            while (pos0 >= 0)
-            {
-                if (buf[pos0] == ' ')
-                {
-                    break;
-                }
-
-                pos0 --;
-            }
-
-            pos0 ++;
-        }
-        else
-        {
-            pos0 = 0;
-        }
-
-        /* Find the directory name */
-
-        /* From beginning of word to last slash */
-
-        if (pos > 0)
-        {
-            pos1 = (int)(pos - 1);
-
-            while (pos1 >= pos0)
-            {
-                if (buf[pos1] == '/')
-                {
-                    break;
-                }
-
-                pos1 --;
-            }
-
-            pos1++;
-        }
-        else
-        {
-            pos1 = 0;
-        }
-
-        if (pos1 > pos0)
-        {
-            a_folder[0u] = '\000';
-
-            if (buf[pos0] == '~')
-            {
-                sprintf(a_folder, "%s%.*s", p_ctxt->p_info->o_home.p_buf, pos1 - pos0 - 1, buf + pos0 + 1);
-            }
-            else
-            {
-                memcpy(a_folder, buf + pos0, pos1 - pos0);
-
-                a_folder[pos1 - pos0] = '\000';
-            }
-
-            p_folder = a_folder;
-        }
-        else
-        {
-            p_folder = ".";
-        }
-
-        i_suggest = 0;
-
-        /* completing a file name or full path to program */
-        if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
-        {
-            char * p_env;
-
-            p_env = getenv("PATH");
-
-            if (p_env)
-            {
-                /* split of buffer */
-                char * p_temp;
-
-                p_temp = strdup(p_env);
-
-                if (p_temp)
-                {
-                    char * p_comp;
-
-                    p_comp = strtok(p_temp, ":");
-
-                    while (p_comp)
-                    {
-                        /* enumerate executables in path */
-                        DIR * p_dir_object;
-
-                        p_dir_object = opendir(p_comp);
-
-                        if (p_dir_object)
-                        {
-                            struct dirent * p_dir_entry;
-
-                            p_dir_entry = readdir(p_dir_object);
-
-                            while (p_dir_entry)
-                            {
-                                if (DT_DIR != p_dir_entry->d_type)
-                                {
-                                    if (0 == strncmp(p_dir_entry->d_name, buf + pos1, pos - pos1))
-                                    {
-                                        if (pos1 > 0)
-                                        {
-                                            sprintf(suggest, "%.*s%s", pos1, buf, p_dir_entry->d_name);
-                                        }
-                                        else
-                                        {
-                                            sprintf(suggest, "%s", p_dir_entry->d_name);
-                                        }
-
-                                        if (0 != strcmp(suggest, buf))
-                                        {
-                                            snck_suggest_add(suggest);
-                                        }
-                                    }
-                                }
-
-                                p_dir_entry = readdir(p_dir_object);
-                            }
-
-                            closedir(p_dir_object);
-                        }
-
-                        p_comp = strtok(NULL, ":");
-                    }
-
-                    free(p_temp);
-                }
-            }
-        }
-        else
-        {
-            DIR * d;
-
-            d = opendir(p_folder);
-
-            if (d)
-            {
-                while (1)
-                {
-                    struct dirent * e;
-
-                    e = readdir(d);
-                    if (e)
-                    {
-                        if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
-                        {
-                        }
-                        else if (0 == snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1))
-                        {
-                            if (!b_cmd_is_cd || (DT_DIR == e->d_type))
-                            {
-                                if (pos1 > 0)
-                                {
-                                    sprintf(suggest, "%.*s%s", pos1, buf, e->d_name);
-                                }
-                                else
-                                {
-                                    sprintf(suggest, "%s", e->d_name);
-                                }
-
-                                if (0 != strcmp(suggest, buf))
-                                {
-                                    snck_suggest_add(suggest);
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                closedir(d);
-            }
-        }
-
-        /* If only one suggestion... */
-        if (0 == i_suggest)
-        {
-        }
-        else if (1 == i_suggest)
-        {
-            linenoiseAddCompletion(lc, a_suggest[0]);
-        }
-        else
-        {
-            int i;
-
-#if 0
-            int j;
-
-            /* Find common prefix for suggestions */
-            i = 1;
-
-            j = strlen(a_suggest[0]);
-
-            while (i < i_suggest)
-            {
-                int k;
-
-                /* Find new common length */
-                k = 0;
-
-                while ((k < j) && a_suggest[0][k] && (a_suggest[0][k] == a_suggest[i][k]))
-                {
-                    k++;
-                }
-
-                j = k;
-
-                i ++;
-            }
-
-            if ((j != (int)(strlen(a_suggest[0]))) && (j > (int)(strlen(buf))))
-            {
-                /* suggest only common prefix... */
-                strcpy(suggest, a_suggest[0]);
-
-                suggest[j] = '\000';
-
-                linenoiseAddCompletion(lc, suggest);
-            }
-#endif
-
-            /* Merge list of suggestions into linenoise */
-            i = 0;
-
-            while (i < i_suggest)
-            {
-                if (a_suggest[i])
-                {
-                    linenoiseAddCompletion(lc, a_suggest[i]);
-
-                    free(a_suggest[i]);
-
-                    a_suggest[i] = NULL;
-                }
-
-                i++;
-            }
-
-            i_suggest = 0;
-        }
-    }
-
-} /* snck_completion */
-
-#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
-
-static
 char
-snck_read_line(void)
-{
-    char b_result;
-
-    char * p_temp;
-
-    snck_build_prompt();
-
-#if defined(SNCK_FEATURE_LINENOISE)
-
-    errno = 0;
-
-    {
-        if (!b_history_loaded)
-        {
-            sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
-
-            linenoiseHistoryLoad(a_history_file);
-
-            b_history_loaded = 1;
-        }
-    }
-
-    linenoiseSetCompletionCallback(snck_completion);
-
-    p_temp = linenoise(a_prompt);
-
-    if (p_temp)
-    {
-        if (' ' != p_temp[0u])
-        {
-            /* Detect duplicate entries... */
-
-            if (linenoiseHistoryAdd(p_temp))
-            {
-                linenoiseHistorySave(a_history_file);
-            }
-        }
-
-        strcpy(a_split, p_temp);
-
-        b_result = 1;
-
-        free(p_temp);
-    }
-    else
-    {
-        if (errno == EAGAIN)
-        {
-            /* ctrl+c was pressed */
-            a_split[0] = '\n';
-
-            a_split[1] = '\000';
-
-            b_result = 1;
-        }
-        else
-        {
-            b_result = 0;
-        }
-    }
-
-#else /* #if defined(SNCK_FEATURE_LINENOISE) */
-
-    fprintf(stdout, "%s", a_prompt);
-
-    fflush(stdout);
-
-    if (NULL != fgets(a_split, sizeof(a_split) - 1u, stdin))
-    {
-        a_split[sizeof(a_split) - 1u] = '\0';
-
-        b_result = 1;
-    }
-    else
-    {
-        b_result = 0;
-    }
-
-#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
-
-#if 0
-    if (!b_result)
-    {
-        fprintf(stderr, "... bye!\n");
-    }
-#endif
-
-    return b_result;
-}
-
-static
-char
-snck_read_file(void)
+snck_read_file(
+    struct snck_ctxt const * const p_ctxt)
 {
     char b_result;
 
     char b_continue;
+
+    char const * p_line;
 
     b_result = 1;
 
@@ -1264,11 +618,11 @@ snck_read_file(void)
 
     while (b_result && b_continue)
     {
-        a_split[0] = '\000';
+        p_line = snck_line_read(p_ctxt);
 
-        if (snck_read_line())
+        if (p_line)
         {
-            if (snck_process_line())
+            if (snck_process_line(p_ctxt, p_line))
             {
             }
             else
@@ -1318,19 +672,19 @@ snck_main(
     }
     else
     {
-        p_ctxt = &(o_ctxt);
+        g_ctxt = &(o_ctxt);
 
-        p_ctxt->p_heap = &(o_heap);
+        g_ctxt->p_heap = &(o_heap);
 
-        p_ctxt->p_info = &(o_info);
+        g_ctxt->p_info = &(o_info);
 
-        p_ctxt->p_passwd = &(o_passwd);
+        g_ctxt->p_passwd = &(o_passwd);
 
-        if (snck_heap_init(p_ctxt))
+        if (snck_heap_init(g_ctxt))
         {
-            snck_passwd_init(p_ctxt);
+            snck_passwd_init(g_ctxt);
 
-            if (snck_info_init(p_ctxt))
+            if (snck_info_init(g_ctxt))
             {
                 /* install a SIGCHLD handler */
                 signal(SIGCHLD, snck_sigchld);
@@ -1349,7 +703,9 @@ snck_main(
 
                 unsetenv("OLDPWD");
 
-                if (snck_read_file())
+                snck_line_init(g_ctxt);
+
+                if (snck_read_file(g_ctxt))
                 {
                     i_exit_status = 0;
                 }
@@ -1358,16 +714,18 @@ snck_main(
                     i_exit_status = 1;
                 }
 
-                snck_info_cleanup(p_ctxt);
+                snck_line_cleanup(g_ctxt);
+
+                snck_info_cleanup(g_ctxt);
             }
             else
             {
                 i_exit_status = 1;
             }
 
-            snck_passwd_cleanup(p_ctxt);
+            snck_passwd_cleanup(g_ctxt);
 
-            snck_heap_cleanup(p_ctxt);
+            snck_heap_cleanup(g_ctxt);
         }
         else
         {
