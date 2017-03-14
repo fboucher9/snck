@@ -328,7 +328,12 @@ snck_completion(
             {
                 if (0 == snck_fuzzy_compare(history[history_len - 1 - i], buf + i_cmd_prefix + 1, strlen(buf) - i_cmd_prefix - 1))
                 {
-                    snck_suggest_add(history[history_len - 1 - i]);
+                    if (i_suggest < 128)
+                    {
+                        a_suggest[i_suggest] = strdup(history[history_len - 1 - i]);
+
+                        i_suggest ++;
+                    }
                 }
             }
         }
