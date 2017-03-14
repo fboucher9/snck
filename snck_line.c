@@ -319,8 +319,21 @@ snck_completion(
 
         i_suggest = 0;
 
+        /* completing a history entry */
+        if ('!' == buf[i_cmd_prefix])
+        {
+            int i;
+
+            for (i = 0; i < history_len; i++)
+            {
+                if (0 == snck_fuzzy_compare(history[history_len - 1 - i], buf + i_cmd_prefix + 1, strlen(buf) - i_cmd_prefix - 1))
+                {
+                    snck_suggest_add(history[history_len - 1 - i]);
+                }
+            }
+        }
         /* completing a file name or full path to program */
-        if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
+        else if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
         {
             char * p_env;
 

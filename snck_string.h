@@ -35,6 +35,8 @@ struct snck_string
 
     size_t i_buf_len;
 
+    size_t i_alloc_len;
+
 }; /* struct snck_string */
 
 void
@@ -50,6 +52,15 @@ snck_string_cleanup(
         p_ctxt,
     struct snck_string * const
         p_string);
+
+void
+snck_string_ref(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    char const * const
+        p_ref);
 
 char
 snck_string_copy(

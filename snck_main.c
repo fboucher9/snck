@@ -35,6 +35,11 @@ Description:
 /* Line editor */
 #include "snck_line.h"
 
+/* */
+#if defined(SNCK_FEATURE_LINENOISE)
+#include <linenoise.h>
+#endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
 struct snck_main_ctxt
 {
     struct snck_ctxt o_ctxt;
@@ -562,6 +567,19 @@ snck_execute_child(
         else if ((5 == i_cmd_len) && (0 == strncmp(p_cmd, "shell", i_cmd_len)))
         {
             b_result = snck_builtin_shell(p_cmd + i_cmd_len);
+        }
+        else if ((4 == i_cmd_len) && (0 == strncmp(p_cmd, "hist", i_cmd_len)))
+        {
+            int i;
+
+            for (i = 9; i >= 0; i--)
+            {
+                fprintf(stderr, "%6d: %s\n",
+                    history_len - 1 - i,
+                    history[history_len - 1 - i]);
+            }
+
+            b_result = 1;
         }
         else if (
             (
