@@ -499,6 +499,8 @@ snck_completion(
 
                 linenoiseAddCompletion(lc, suggest);
             }
+
+            fprintf(stderr, "\r\n");
 #endif
 
             /* Merge list of suggestions into linenoise */
@@ -508,7 +510,11 @@ snck_completion(
             {
                 if (a_suggest[i])
                 {
+#if 0
+                    fprintf(stderr, "%s\r\n", a_suggest[i]);
+#else
                     linenoiseAddCompletion(lc, a_suggest[i]);
+#endif
 
                     free(a_suggest[i]);
 
