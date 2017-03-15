@@ -193,8 +193,9 @@ static
 void
 snck_completion(
     char const * buf,
+    linenoiseCompletions * lc,
     size_t pos,
-    linenoiseCompletions * lc)
+    char key)
 {
     /* quick tokenize of current line */
     /* find the word under the cursor */
@@ -241,7 +242,20 @@ snck_completion(
         }
     }
 
-    if ((int)(pos) > i_cmd_prefix)
+    if ((9 != key) && ((int)(pos) <= i_cmd_prefix) && !buf[i_cmd_prefix])
+    {
+        /* Full history search */
+        int i;
+
+        for (i = 0; ((i < history_len) && (i < 128)); i++)
+        {
+            if (strlen(history[history_len - 1 - i]))
+            {
+                linenoiseAddCompletion(lc, history[history_len - 1 - i]);
+            }
+        }
+    }
+    else if ((int)(pos) > i_cmd_prefix)
     {
         char * p_folder;
 
@@ -320,13 +334,13 @@ snck_completion(
         i_suggest = 0;
 
         /* completing a history entry */
-        if ('!' == buf[i_cmd_prefix])
+        if (key != 9)
         {
             int i;
 
             for (i = 0; i < history_len; i++)
             {
-                if (0 == snck_fuzzy_compare(history[history_len - 1 - i], buf + i_cmd_prefix + 1, strlen(buf) - i_cmd_prefix - 1))
+                if (0 == snck_fuzzy_compare(history[history_len - 1 - i], buf + i_cmd_prefix + 0, strlen(buf) - i_cmd_prefix - 0))
                 {
                     if (i_suggest < 128)
                     {
