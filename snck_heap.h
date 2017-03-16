@@ -12,7 +12,7 @@ Description:
 
 /* Reverse include guard */
 #if defined(INC_SNCK_HEAP_H)
-#error include snck_heap.h
+#error include snck_heap.h once
 #endif /* #if defined(INC_SNCK_HEAP_H) */
 
 #define INC_SNCK_HEAP_H

@@ -36,6 +36,12 @@ Description:
 #include <linenoise.h>
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
+/* List */
+#include "snck_list.h"
+
+/* History */
+#include "snck_history.h"
+
 /* Sorted list of strings */
 /* Sort by alphatical order */
 /* Sort by fuzzy order */
@@ -48,10 +54,6 @@ static char a_split[65536u];
 static char a_folder[1024u];
 
 static char suggest[1024u];
-
-static char a_history_file[1024u];
-
-static char b_history_loaded = 0;
 
 static char * a_suggest[128u];
 
@@ -207,6 +209,8 @@ snck_completion(
     /* locate words before and words after */
     /* complete entire line and replace word with other ... */
 
+    struct snck_ctxt const * const p_ctxt = g_ctxt;
+
     int i_cmd_prefix;
 
     char b_cmd_is_cd;
@@ -250,14 +254,23 @@ snck_completion(
     if ((9 != key) && ((int)(pos) <= i_cmd_prefix) && !buf[i_cmd_prefix])
     {
         /* Full history search */
+        struct snck_list const * p_it;
+
         int i;
 
-        for (i = 0; ((i < history_len) && (i < 128)); i++)
+        i = 0;
+
+        p_it = p_ctxt->p_history->o_list.p_prev;
+
+        while ((i < 128) && (p_it != &(p_ctxt->p_history->o_list)))
         {
-            if (strlen(history[history_len - 1 - i]))
-            {
-                linenoiseAddCompletion(lc, history[history_len - 1 - i]);
-            }
+            struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
+
+            linenoiseAddCompletion(lc, p_history_line->o_buf.p_buf);
+
+            i ++;
+
+            p_it = p_it->p_prev;
         }
     }
     else if ((int)(pos) > i_cmd_prefix)
@@ -320,7 +333,7 @@ snck_completion(
 
             if (buf[pos0] == '~')
             {
-                sprintf(a_folder, "%s%.*s", g_ctxt->p_info->o_home.p_buf, pos1 - pos0 - 1, buf + pos0 + 1);
+                sprintf(a_folder, "%s%.*s", p_ctxt->p_info->o_home.p_buf, pos1 - pos0 - 1, buf + pos0 + 1);
             }
             else
             {
@@ -341,19 +354,25 @@ snck_completion(
         /* completing a history entry */
         if (key != 9)
         {
-            int i;
+            struct snck_list const * p_it;
 
-            for (i = 0; i < history_len; i++)
+            p_it = p_ctxt->p_history->o_list.p_prev;
+
+            while (p_it != &(p_ctxt->p_history->o_list))
             {
-                if (0 == snck_fuzzy_compare(history[history_len - 1 - i], buf + i_cmd_prefix + 0, strlen(buf) - i_cmd_prefix - 0))
+                struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
+
+                if (0 == snck_fuzzy_compare(p_history_line->o_buf.p_buf, buf + i_cmd_prefix + 0, strlen(buf) - i_cmd_prefix - 0))
                 {
                     if (i_suggest < 128)
                     {
-                        a_suggest[i_suggest] = strdup(history[history_len - 1 - i]);
+                        a_suggest[i_suggest] = strdup(p_history_line->o_buf.p_buf);
 
                         i_suggest ++;
                     }
                 }
+
+                p_it = p_it->p_prev;
             }
         }
         /* completing a file name or full path to program */
@@ -569,16 +588,7 @@ snck_line_get(
 
             errno = 0;
 
-            {
-                if (!b_history_loaded)
-                {
-                    sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
-
-                    b_history_loaded = 1;
-                }
-            }
-
-            linenoiseHistoryLoad(a_history_file);
+            snck_history_load(p_ctxt);
 
             linenoiseSetCompletionCallback(snck_completion);
 
@@ -594,10 +604,9 @@ snck_line_get(
                 {
                     /* Detect duplicate entries... */
 
-                    if (linenoiseHistoryAdd(p_temp))
-                    {
-                        linenoiseHistorySave(a_history_file);
-                    }
+                    snck_history_add(p_ctxt, p_temp);
+
+                    snck_history_save(p_ctxt);
                 }
 
                 strcpy(a_split, p_temp);

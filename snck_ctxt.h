@@ -24,6 +24,10 @@ struct snck_info;
 
 struct snck_passwd;
 
+struct snck_line;
+
+struct snck_history;
+
 /*
 
 Structure: snck_ctxt
@@ -42,6 +46,8 @@ struct snck_ctxt
     struct snck_passwd * p_passwd;
 
     struct snck_line * p_line;
+
+    struct snck_history * p_history;
 
 }; /* struct snck_ctxt */
 

@@ -35,6 +35,12 @@ Description:
 /* Line editor */
 #include "snck_line.h"
 
+/* List */
+#include "snck_list.h"
+
+/* History */
+#include "snck_history.h"
+
 /* */
 #if defined(SNCK_FEATURE_LINENOISE)
 #include <linenoise.h>
@@ -51,6 +57,8 @@ struct snck_main_ctxt
     struct snck_info o_info;
 
     struct snck_line o_line;
+
+    struct snck_history o_history;
 
 }; /* struct snck_main_ctxt */
 
@@ -568,6 +576,7 @@ snck_execute_child(
         {
             b_result = snck_builtin_shell(p_cmd + i_cmd_len);
         }
+#if 0
         else if ((4 == i_cmd_len) && (0 == strncmp(p_cmd, "hist", i_cmd_len)))
         {
             int i;
@@ -581,6 +590,7 @@ snck_execute_child(
 
             b_result = 1;
         }
+#endif
         else if (
             (
                 (
@@ -673,6 +683,8 @@ snck_main_init(
 
     p_ctxt->p_line = &(p_main->o_line);
 
+    p_ctxt->p_history = &(p_main->o_history);
+
     if (snck_heap_init(p_ctxt))
     {
         snck_passwd_init(p_ctxt);
@@ -697,6 +709,8 @@ snck_main_init(
             unsetenv("OLDPWD");
 
             snck_line_init(p_ctxt);
+
+            snck_history_init(p_ctxt);
 
             b_result = 1;
         }
@@ -727,6 +741,8 @@ snck_main_cleanup(
 {
     struct snck_ctxt const * const p_ctxt =
         &(p_main->o_ctxt);
+
+    snck_history_cleanup(p_ctxt);
 
     snck_line_cleanup(p_ctxt);
 
