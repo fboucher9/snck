@@ -36,6 +36,11 @@ Description:
 #include <linenoise.h>
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
+/* Sorted list of strings */
+/* Sort by alphatical order */
+/* Sort by fuzzy order */
+/* Unsorted list of strings */
+
 static struct snck_ctxt const * g_ctxt = NULL;
 
 static char a_split[65536u];
@@ -569,11 +574,11 @@ snck_line_get(
                 {
                     sprintf(a_history_file, "%s/.snckhist", p_ctxt->p_info->o_home.p_buf);
 
-                    linenoiseHistoryLoad(a_history_file);
-
                     b_history_loaded = 1;
                 }
             }
+
+            linenoiseHistoryLoad(a_history_file);
 
             linenoiseSetCompletionCallback(snck_completion);
 
@@ -585,7 +590,7 @@ snck_line_get(
 
             if (p_temp)
             {
-                if (' ' != p_temp[0u])
+                if ((' ' != p_temp[0u]) && ('\000' != p_temp[0u]))
                 {
                     /* Detect duplicate entries... */
 
