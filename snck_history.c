@@ -133,31 +133,6 @@ snck_history_init(
 
 } /* snck_history_init() */
 
-static
-void
-snck_history_empty(
-    struct snck_ctxt const * const
-        p_ctxt)
-{
-    struct snck_history * const p_history =
-        p_ctxt->p_history;
-
-    struct snck_list * p_it;
-
-    p_it = p_history->o_list.p_next;
-
-    while (p_it != &(p_history->o_list))
-    {
-        struct snck_list * p_next = p_it->p_next;
-
-        snck_history_line_destroy(
-            p_ctxt,
-            (struct snck_history_line *)(p_it));
-
-        p_it = p_next;
-    }
-}
-
 void
 snck_history_cleanup(
     struct snck_ctxt const * const
@@ -167,7 +142,7 @@ snck_history_cleanup(
         p_ctxt->p_history;
 
     /* Empty the linked list */
-    snck_history_empty(
+    snck_history_unload(
         p_ctxt);
 
     snck_string_cleanup(
@@ -288,7 +263,7 @@ snck_history_load(
     {
         char b_more;
 
-        snck_history_empty(p_ctxt);
+        snck_history_unload(p_ctxt);
 
         b_more = 1;
 
@@ -325,6 +300,31 @@ snck_history_load(
     }
 
 } /* snck_history_load() */
+
+void
+snck_history_unload(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    struct snck_history * const p_history =
+        p_ctxt->p_history;
+
+    struct snck_list * p_it;
+
+    p_it = p_history->o_list.p_next;
+
+    while (p_it != &(p_history->o_list))
+    {
+        struct snck_list * p_next = p_it->p_next;
+
+        snck_history_line_destroy(
+            p_ctxt,
+            (struct snck_history_line *)(p_it));
+
+        p_it = p_next;
+    }
+
+} /* snck_history_unload() */
 
 void
 snck_history_save(

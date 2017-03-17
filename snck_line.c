@@ -274,6 +274,8 @@ snck_completion(
 
             p_it = p_it->p_prev;
         }
+
+        snck_history_unload(p_ctxt);
     }
     else if ((int)(pos) > i_cmd_prefix)
     {
@@ -378,6 +380,8 @@ snck_completion(
 
                 p_it = p_it->p_prev;
             }
+
+            snck_history_unload(p_ctxt);
         }
         /* completing a file name or full path to program */
         else if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
@@ -611,6 +615,8 @@ snck_line_get(
                     snck_history_add(p_ctxt, p_temp);
 
                     snck_history_save(p_ctxt);
+
+                    snck_history_unload(p_ctxt);
                 }
 
                 strcpy(a_split, p_temp);

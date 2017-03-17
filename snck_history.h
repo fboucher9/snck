@@ -78,6 +78,11 @@ snck_history_load(
         p_ctxt);
 
 void
+snck_history_unload(
+    struct snck_ctxt const * const
+        p_ctxt);
+
+void
 snck_history_save(
     struct snck_ctxt const * const
         p_ctxt);
