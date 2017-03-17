@@ -71,10 +71,28 @@ snck_heap_realloc(
         p_heap->i_count --;
     }
 
-    p_result =
-        realloc(
-            p_buf,
-            i_buf_len);
+    if (i_buf_len)
+    {
+        if (p_buf)
+        {
+            p_result =
+                realloc(
+                    p_buf,
+                    i_buf_len);
+        }
+        else
+        {
+            p_result =
+                malloc(
+                    i_buf_len);
+        }
+    }
+    else
+    {
+        free(p_buf);
+
+        p_result = NULL;
+    }
 
     if (
         p_result)
