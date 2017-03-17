@@ -177,6 +177,101 @@ snck_history_cleanup(
 
 } /* snck_history_cleanup() */
 
+static
+char *
+snck_history_get_line(
+    struct snck_ctxt const * const
+        p_ctxt,
+    FILE * const
+        p_file)
+{
+    char * a_line;
+
+    int i_line_max_len;
+
+    int i_line_len;
+
+    i_line_max_len = 128;
+
+    i_line_len = 0;
+
+    a_line = snck_heap_realloc(p_ctxt, NULL, i_line_max_len);
+
+    if (a_line)
+    {
+        char b_more;
+
+        b_more = 1;
+
+        while (b_more)
+        {
+            int c;
+
+            c = fgetc(p_file);
+
+            if (EOF != c)
+            {
+                if ('\r' == c)
+                {
+                }
+                else
+                {
+                    if (i_line_len >= i_line_max_len)
+                    {
+                        i_line_max_len <<= 1;
+
+                        a_line = snck_heap_realloc(p_ctxt, a_line, i_line_max_len);
+                    }
+
+                    if (a_line)
+                    {
+                        if ('\n' == c)
+                        {
+                            a_line[i_line_len] = '\000';
+
+                            i_line_len ++;
+
+                            b_more = 0;
+                        }
+                        else
+                        {
+                            a_line[i_line_len] = (char)(c);
+
+                            i_line_len ++;
+                        }
+                    }
+                    else
+                    {
+                        b_more = 0;
+                    }
+                }
+            }
+            else
+            {
+                snck_heap_realloc(p_ctxt, a_line, 0);
+
+                a_line = NULL;
+
+                b_more = 0;
+            }
+        }
+    }
+
+    return a_line;
+
+}
+
+static
+void
+snck_history_put_line(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char * const
+        a_line)
+{
+    snck_heap_realloc(p_ctxt, a_line, 0u);
+}
+
 void
 snck_history_load(
     struct snck_ctxt const * const
@@ -191,40 +286,38 @@ snck_history_load(
 
     if (p_file)
     {
-        static char a_line[4096u];
+        char b_more;
 
         snck_history_empty(p_ctxt);
 
-        while (NULL != fgets(a_line, 4095u, p_file))
+        b_more = 1;
+
+        while (b_more)
         {
+            char * a_line;
+
+            a_line = snck_history_get_line(p_ctxt, p_file);
+
+            if (a_line)
             {
-                int i_line_len;
-
-                i_line_len = strlen(a_line);
-
-                while (
-                    (0 < i_line_len)
-                    && (
-                        ('\n' == a_line[i_line_len-1])
-                        || ('\r' == a_line[i_line_len-1])))
                 {
-                    a_line[i_line_len-1] = '\000';
+                    struct snck_history_line * p_history_line;
 
-                    i_line_len --;
+                    p_history_line = snck_history_line_create(p_ctxt);
+
+                    if (p_history_line)
+                    {
+                        snck_string_copy(p_ctxt, &(p_history_line->o_buf), a_line);
+
+                        snck_list_join(&(p_history_line->o_list), &(p_history->o_list));
+                    }
                 }
+
+                snck_history_put_line(p_ctxt, a_line);
             }
-
+            else
             {
-                struct snck_history_line * p_history_line;
-
-                p_history_line = snck_history_line_create(p_ctxt);
-
-                if (p_history_line)
-                {
-                    snck_string_copy(p_ctxt, &(p_history_line->o_buf), a_line);
-
-                    snck_list_join(&(p_history_line->o_list), &(p_history->o_list));
-                }
+                b_more = 0;
             }
         }
 

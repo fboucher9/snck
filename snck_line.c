@@ -258,6 +258,8 @@ snck_completion(
 
         int i;
 
+        snck_history_load(p_ctxt);
+
         i = 0;
 
         p_it = p_ctxt->p_history->o_list.p_prev;
@@ -355,6 +357,8 @@ snck_completion(
         if (key != 9)
         {
             struct snck_list const * p_it;
+
+            snck_history_load(p_ctxt);
 
             p_it = p_ctxt->p_history->o_list.p_prev;
 
@@ -588,8 +592,6 @@ snck_line_get(
 
             errno = 0;
 
-            snck_history_load(p_ctxt);
-
             linenoiseSetCompletionCallback(snck_completion);
 
             g_ctxt = p_ctxt;
@@ -603,6 +605,8 @@ snck_line_get(
                 if ((' ' != p_temp[0u]) && ('\000' != p_temp[0u]))
                 {
                     /* Detect duplicate entries... */
+
+                    snck_history_load(p_ctxt);
 
                     snck_history_add(p_ctxt, p_temp);
 
