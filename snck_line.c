@@ -202,7 +202,7 @@ snck_completion(
     char const * buf,
     linenoiseCompletions * lc,
     size_t pos,
-    char key)
+    int key)
 {
     /* quick tokenize of current line */
     /* find the word under the cursor */
@@ -251,7 +251,8 @@ snck_completion(
         }
     }
 
-    if ((9 != key) && ((int)(pos) <= i_cmd_prefix) && !buf[i_cmd_prefix])
+#if 0
+    if ((16 == key) && ((int)(pos) <= i_cmd_prefix) && !buf[i_cmd_prefix])
     {
         /* Full history search */
         struct snck_list const * p_it;
@@ -277,7 +278,9 @@ snck_completion(
 
         snck_history_unload(p_ctxt);
     }
-    else if ((int)(pos) > i_cmd_prefix)
+#endif
+
+    if (((9 == key) && ((int)(pos) > i_cmd_prefix)) || (256+1 == key) || (16 == key))
     {
         char * p_folder;
 
@@ -356,7 +359,7 @@ snck_completion(
         i_suggest = 0;
 
         /* completing a history entry */
-        if (key != 9)
+        if (key == 16)
         {
             struct snck_list const * p_it;
 
@@ -373,6 +376,49 @@ snck_completion(
                     if (i_suggest < 128)
                     {
                         a_suggest[i_suggest] = strdup(p_history_line->o_buf.p_buf);
+
+                        i_suggest ++;
+                    }
+                }
+
+                p_it = p_it->p_prev;
+            }
+
+            snck_history_unload(p_ctxt);
+        }
+        else if (key == 256+1)
+        {
+            /* Complete last argument of previous commands */
+            /* Insert word at pos */
+            struct snck_list const * p_it;
+
+            snck_history_load(p_ctxt);
+
+            p_it = p_ctxt->p_history->o_list.p_prev;
+
+            while (p_it != &(p_ctxt->p_history->o_list))
+            {
+                struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
+
+                int i_len;
+
+                i_len = strlen(p_history_line->o_buf.p_buf);
+
+                while ((i_len > 0) && (' ' == p_history_line->o_buf.p_buf[i_len-1]))
+                {
+                    i_len--;
+                }
+                while ((i_len > 0) && (' ' != p_history_line->o_buf.p_buf[i_len-1]))
+                {
+                    i_len--;
+                }
+
+                {
+                    if (i_suggest < 128)
+                    {
+                        sprintf(suggest, "%.*s%s%s", pos, buf, p_history_line->o_buf.p_buf + i_len, buf + pos);
+
+                        a_suggest[i_suggest] = strdup(suggest);
 
                         i_suggest ++;
                     }
