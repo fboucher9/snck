@@ -172,18 +172,37 @@ snck_prompt_get(
                     }
                     else if ('w' == c_in)
                     {
+                        char * p_buf;
                         if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
                         {
                             *p_out = '~';
                             p_out ++;
                             i_len = p_ctxt->p_info->o_pwd.i_buf_len - p_ctxt->p_info->o_home.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf + p_ctxt->p_info->o_home.i_buf_len, i_len);
-                            p_out += i_len;
+                            p_buf = p_ctxt->p_info->o_pwd.p_buf + p_ctxt->p_info->o_home.i_buf_len;
                         }
                         else
                         {
                             i_len = p_ctxt->p_info->o_pwd.i_buf_len;
-                            memcpy(p_out, p_ctxt->p_info->o_pwd.p_buf, i_len);
+                            p_buf = p_ctxt->p_info->o_pwd.p_buf;
+                        }
+
+                        if (i_len > 32)
+                        {
+                            memcpy(p_out, p_buf, 8);
+                            p_out += 8;
+
+                            *p_out = '.';
+                            p_out ++;
+
+                            *p_out = '.';
+                            p_out ++;
+
+                            memcpy(p_out, p_buf + i_len - 24, 24);
+                            p_out += 24;
+                        }
+                        else
+                        {
+                            memcpy(p_out, p_buf, i_len);
                             p_out += i_len;
                         }
                     }
