@@ -42,14 +42,15 @@ Description:
 /* History */
 #include "snck_history.h"
 
+/* Heap */
+#include "snck_heap.h"
+
 /* Sorted list of strings */
 /* Sort by alphatical order */
 /* Sort by fuzzy order */
 /* Unsorted list of strings */
 
 static struct snck_ctxt const * g_ctxt = NULL;
-
-static char a_split[65536u];
 
 static char a_folder[1024u];
 
@@ -629,7 +630,7 @@ snck_line_get(
     struct snck_ctxt const * const
         p_ctxt)
 {
-    char b_result;
+    char * a_split = NULL;
 
     char const * p_prompt = snck_prompt_get(p_ctxt);
 
@@ -640,11 +641,11 @@ snck_line_get(
         {
             char * p_temp;
 
-            errno = 0;
-
             linenoiseSetCompletionCallback(snck_completion);
 
             g_ctxt = p_ctxt;
+
+            errno = 0;
 
             p_temp = linenoise(p_prompt);
 
@@ -665,9 +666,12 @@ snck_line_get(
                     snck_history_unload(p_ctxt);
                 }
 
-                strcpy(a_split, p_temp);
+                a_split = snck_heap_realloc(p_ctxt, NULL, strlen(p_temp) + 1);
 
-                b_result = 1;
+                if (a_split)
+                {
+                    strcpy(a_split, p_temp);
+                }
 
                 free(p_temp);
             }
@@ -676,42 +680,45 @@ snck_line_get(
                 if (errno == EAGAIN)
                 {
                     /* ctrl+c was pressed */
-                    a_split[0] = '\n';
+                    a_split = snck_heap_realloc(p_ctxt, NULL, 2u);
 
-                    a_split[1] = '\000';
+                    if (a_split)
+                    {
+                        a_split[0] = '\n';
 
-                    b_result = 1;
+                        a_split[1] = '\000';
+                    }
                 }
                 else
                 {
-                    b_result = 0;
+                    a_split = NULL;
                 }
             }
         }
 #else /* #if defined(SNCK_FEATURE_LINENOISE) */
         {
-            fprintf(stdout, "%s", p_prompt);
+            a_split = snck_heap_realloc(p_ctxt, NULL, 65536u);
 
-            fflush(stdout);
-
-            if (NULL != fgets(a_split, sizeof(a_split) - 1u, stdin))
+            if (a_split)
             {
-                a_split[sizeof(a_split) - 1u] = '\0';
+                fprintf(stdout, "%s", p_prompt);
 
-                b_result = 1;
-            }
-            else
-            {
-                b_result = 0;
+                fflush(stdout);
+
+                if (NULL != fgets(a_split, 65536u, stdin))
+                {
+                }
+                else
+                {
+                    snck_heap_realloc(p_ctxt, a_split, 0u);
+
+                    a_split = NULL;
+                }
             }
         }
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
         snck_prompt_put(p_ctxt, p_prompt);
-    }
-    else
-    {
-        b_result = 0;
     }
 
 #if 0
@@ -721,14 +728,7 @@ snck_line_get(
     }
 #endif
 
-    if (b_result)
-    {
-        return a_split;
-    }
-    else
-    {
-        return NULL;
-    }
+    return a_split;
 
 } /* snck_line_get() */
 
@@ -739,8 +739,7 @@ snck_line_put(
     char const * const
         p_buf)
 {
-    (void)(p_ctxt);
-    (void)(p_buf);
+    snck_heap_realloc(p_ctxt, (void *)(p_buf), 0u);
 } /* snck_line_put() */
 
 /* end-of-file: snck_line.c */
