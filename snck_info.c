@@ -182,9 +182,8 @@ snck_info_detect_host(
 
 } /* snck_info_detect_host() */
 
-static
 char
-snck_info_detect_pwd(
+snck_info_update_wd(
     struct snck_ctxt const * const
         p_ctxt)
 {
@@ -201,7 +200,7 @@ snck_info_detect_pwd(
 
     b_retry = 1;
 
-    i_max_len = 8u;
+    i_max_len = 128u;
 
     while (b_result && b_retry)
     {
@@ -215,21 +214,38 @@ snck_info_detect_pwd(
             {
                 b_retry = 0;
 
-                if (0 == setenv("PWD", p_temp, 1))
+                /* Detect if value has changed */
+                if (!p_info->o_pwd.p_buf || (0 != strcmp(p_temp, p_info->o_pwd.p_buf)))
                 {
+                    if (0 == setenv("PWD", p_temp, 1))
+                    {
+                        if (p_info->o_pwd.p_buf)
+                        {
+                            b_result =
+                                snck_string_copy(
+                                    p_ctxt,
+                                    &(p_info->o_old_pwd),
+                                    p_info->o_pwd.p_buf);
+                        }
+
+                        if (b_result)
+                        {
+                            b_result =
+                                snck_string_copy(
+                                    p_ctxt,
+                                    &(p_info->o_pwd),
+                                    p_temp);
+                        }
+                    }
+                    else
+                    {
+                        b_result = 0;
+                    }
                 }
                 else
                 {
-                    b_result = 0;
-                }
-
-                if (b_result)
-                {
-                    b_result =
-                        snck_string_copy(
-                            p_ctxt,
-                            &(p_info->o_pwd),
-                            p_temp);
+                    /* Value has not changed */
+                    b_result = 1;
                 }
             }
             else
@@ -256,7 +272,7 @@ snck_info_detect_pwd(
 
     return b_result;
 
-} /* snck_info_detect_pwd() */
+} /* snck_info_update_wd() */
 
 static
 char
@@ -296,7 +312,7 @@ snck_info_detect(
         b_result)
     {
         b_result =
-            snck_info_detect_pwd(
+            snck_info_update_wd(
                 p_ctxt);
     }
 

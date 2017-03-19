@@ -53,4 +53,9 @@ snck_info_cleanup(
     struct snck_ctxt const * const
         p_ctxt);
 
+char
+snck_info_update_wd(
+    struct snck_ctxt const * const
+        p_ctxt);
+
 /* end-of-file: snck_info.h */

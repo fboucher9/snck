@@ -287,40 +287,7 @@ snck_builtin_cd(
 
             if (0 == i_result)
             {
-                snck_string_copy_object(
-                    p_ctxt,
-                    &(
-                        p_ctxt->p_info->o_old_pwd),
-                    &(
-                        p_ctxt->p_info->o_pwd));
-
-                {
-                    static char a_pwd[1024u];
-
-                    a_pwd[0u] = '\000';
-
-                    if (NULL != getcwd(a_pwd, sizeof(a_pwd)))
-                    {
-                    }
-                    else
-                    {
-                        strcpy(a_pwd, "/");
-                    }
-
-                    if (0 == setenv("PWD", a_pwd, 1))
-                    {
-                    }
-                    else
-                    {
-                    }
-
-                    snck_string_copy(
-                        p_ctxt,
-                        &(p_ctxt->p_info->o_pwd),
-                        a_pwd);
-                }
-
-                b_result = 1;
+                b_result = snck_info_update_wd(p_ctxt);
             }
             else
             {
@@ -370,9 +337,11 @@ snck_builtin_set(
 
     if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        static char a_name[256u];
+        char * a_name;
 
-        if ((size_t)(i_name_len) < sizeof(a_name))
+        a_name = snck_heap_realloc(p_ctxt, NULL, i_name_len + 1);
+
+        if (a_name)
         {
             memcpy(a_name, p_name, i_name_len);
 
@@ -411,6 +380,8 @@ snck_builtin_set(
                     fprintf(stderr, "not set\n");
                 }
             }
+
+            snck_heap_realloc(p_ctxt, a_name, 0u);
         }
         else
         {
@@ -441,6 +412,7 @@ snck_builtin_set(
 static
 char
 snck_builtin_unset(
+    struct snck_ctxt const * const p_ctxt,
     char const * p_args)
 {
     char b_result;
@@ -453,9 +425,11 @@ snck_builtin_unset(
 
     if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        static char a_name[256u];
+        char * a_name;
 
-        if ((size_t)(i_name_len) < sizeof(a_name))
+        a_name = snck_heap_realloc(p_ctxt, NULL, i_name_len + 1);
+
+        if (a_name)
         {
             memcpy(a_name, p_name, i_name_len);
 
@@ -464,6 +438,8 @@ snck_builtin_unset(
             i_result = unsetenv(a_name);
 
             (void)(i_result);
+
+            snck_heap_realloc(p_ctxt, a_name, 0u);
         }
         else
         {
@@ -639,7 +615,7 @@ snck_execute_child(
         }
         else if ((5 == i_cmd_len) && (0 == strncmp(p_cmd, "unset", i_cmd_len)))
         {
-            b_result = snck_builtin_unset(p_cmd + i_cmd_len);
+            b_result = snck_builtin_unset(p_ctxt, p_cmd + i_cmd_len);
         }
         else if ((5 == i_cmd_len) && (0 == strncmp(p_cmd, "shell", i_cmd_len)))
         {
