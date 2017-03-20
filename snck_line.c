@@ -58,6 +58,8 @@ static char suggest[1024u];
 
 static char * a_suggest[128u];
 
+static int a_score[128u];
+
 static int i_suggest = 0;
 
 char
@@ -91,7 +93,7 @@ int
 snck_fuzzy_compare(
     char const * p_ref1,
     char const * p_ref2,
-    int const i_len)
+    int const i_ref2_len)
 {
     int i_result;
 
@@ -99,16 +101,20 @@ snck_fuzzy_compare(
 
     int i_ref2;
 
-    if (i_len > 1)
+    int i_ref1_len;
+
+    if (i_ref2_len >= 1)
     {
-        i_result = 1;
+        i_result = 0;
 
         i_ref1 = 0;
 
         i_ref2 = 0;
 
-        /* try to find each letter of p_ref2[0:i_len-1] within p_ref1 */
-        while ((i_ref1 < (int)(strlen(p_ref1))) && (i_ref2 < i_len))
+        i_ref1_len = (int)(strlen(p_ref1));
+
+        /* try to find each letter of p_ref2[0:i_ref2_len-1] within p_ref1 */
+        while ((i_ref1 < i_ref1_len) && (i_ref2 < i_ref2_len))
         {
             /* Look for a letter */
             if (p_ref1[i_ref1] == p_ref2[i_ref2])
@@ -122,14 +128,21 @@ snck_fuzzy_compare(
             }
         }
 
-        if (i_ref2 >= i_len)
+        if (i_ref2 >= i_ref2_len)
         {
-            i_result = 0;
+            i_result = i_ref1;
         }
     }
     else
     {
-        i_result = strncmp(p_ref1, p_ref2, i_len);
+        if (0 == strncmp(p_ref1, p_ref2, i_ref2_len))
+        {
+            i_result = 1;
+        }
+        else
+        {
+            i_result = 0;
+        }
     }
 
     return i_result;
@@ -139,7 +152,8 @@ snck_fuzzy_compare(
 static
 void
 snck_suggest_add(
-    char const * suggest)
+    char const * const suggest,
+    int const i_score)
 {
     if (i_suggest < 128)
     {
@@ -163,7 +177,16 @@ snck_suggest_add(
             {
                 b_inserted = 1;
             }
-            else if (0 > i_compare)
+            else if (
+                (
+                    i_score
+                    && (
+                        (i_score < a_score[i])
+                        || ((i_score == a_score[i]) && (0 > i_compare))))
+                || (
+                    !i_score
+                    && (
+                        0 > i_compare)))
             {
                 /* Do sort of suggestions */
 
@@ -173,10 +196,14 @@ snck_suggest_add(
                 {
                     a_suggest[j] = a_suggest[j-1];
 
+                    a_score[j] = a_score[j-1];
+
                     j--;
                 }
 
                 a_suggest[i] = strdup(suggest);
+
+                a_score[i] = i_score;
 
                 b_inserted = 1;
 
@@ -191,6 +218,8 @@ snck_suggest_add(
         if (!b_inserted)
         {
             a_suggest[i_suggest] = strdup(suggest);
+
+            a_score[i_suggest] = i_score;
 
             i_suggest ++;
         }
@@ -372,11 +401,24 @@ snck_completion(
             {
                 struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
 
-                if (0 == snck_fuzzy_compare(p_history_line->o_buf.p_buf, buf + i_cmd_prefix + 0, strlen(buf) - i_cmd_prefix - 0))
+                if (buf[i_cmd_prefix] != '\000')
+                {
+                    int i_score;
+
+                    i_score = 0;
+
+                    if (0 != (i_score = snck_fuzzy_compare(p_history_line->o_buf.p_buf, buf + i_cmd_prefix + 0, strlen(buf) - i_cmd_prefix - 0)))
+                    {
+                        snck_suggest_add(p_history_line->o_buf.p_buf, i_score);
+                    }
+                }
+                else
                 {
                     if (i_suggest < 128)
                     {
                         a_suggest[i_suggest] = strdup(p_history_line->o_buf.p_buf);
+
+                        a_score[i_suggest] = 0;
 
                         i_suggest ++;
                     }
@@ -420,6 +462,8 @@ snck_completion(
                         sprintf(suggest, "%.*s%s%s", pos, buf, p_history_line->o_buf.p_buf + i_len, buf + pos);
 
                         a_suggest[i_suggest] = strdup(suggest);
+
+                        a_score[i_suggest] = 0;
 
                         i_suggest ++;
                     }
@@ -480,7 +524,7 @@ snck_completion(
 
                                         if (0 != strcmp(suggest, buf))
                                         {
-                                            snck_suggest_add(suggest);
+                                            snck_suggest_add(suggest, 0);
                                         }
                                     }
                                 }
@@ -513,10 +557,14 @@ snck_completion(
                     e = readdir(d);
                     if (e)
                     {
+                        int i_score;
+
+                        i_score = 0;
+
                         if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
                         {
                         }
-                        else if (0 == snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1))
+                        else if (0 != (i_score = snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1)))
                         {
                             if (!b_cmd_is_cd || (DT_DIR == e->d_type))
                             {
@@ -531,7 +579,7 @@ snck_completion(
 
                                 if (0 != strcmp(suggest, buf))
                                 {
-                                    snck_suggest_add(suggest);
+                                    snck_suggest_add(suggest, i_score);
                                 }
                             }
                         }
