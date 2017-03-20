@@ -583,6 +583,60 @@ snck_fork_and_exec(
 
 static
 char
+snck_builtin_hist(
+    struct snck_ctxt const * const p_ctxt,
+    char const * const p_args)
+{
+    char b_result;
+
+    int i;
+
+    struct snck_history * const p_history = p_ctxt->p_history;
+
+    struct snck_list * p_it;
+
+    (void)(p_args);
+
+    snck_history_load(p_ctxt);
+
+    p_it = &(p_history->o_list);
+
+    for (i = 0; i < 10; i++)
+    {
+        if (p_it->p_prev != &(p_history->o_list))
+        {
+            p_it = p_it->p_prev;
+        }
+    }
+
+    for (i = 0; i < 10; i++)
+    {
+        if (p_it != &(p_history->o_list))
+        {
+            struct snck_history_line const * const p_history_line =
+                (struct snck_history_line const * const)(p_it);
+
+            if (p_history_line->o_buf.p_buf)
+            {
+                fprintf(stderr, "%6d: %s\n",
+                    -10+i,
+                    p_history_line->o_buf.p_buf);
+            }
+
+            p_it = p_it->p_next;
+        }
+    }
+
+    snck_history_unload(p_ctxt);
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_builtin_hist() */
+
+static
+char
 snck_execute_child(
     struct snck_ctxt const * const p_ctxt,
     char const * const p_line)
@@ -621,21 +675,10 @@ snck_execute_child(
         {
             b_result = snck_builtin_shell(p_cmd + i_cmd_len);
         }
-#if 0
         else if ((4 == i_cmd_len) && (0 == strncmp(p_cmd, "hist", i_cmd_len)))
         {
-            int i;
-
-            for (i = 9; i >= 0; i--)
-            {
-                fprintf(stderr, "%6d: %s\n",
-                    history_len - 1 - i,
-                    history[history_len - 1 - i]);
-            }
-
-            b_result = 1;
+            b_result = snck_builtin_hist(p_ctxt, p_cmd + i_cmd_len);
         }
-#endif
         else if (
             (
                 (
