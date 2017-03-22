@@ -67,17 +67,34 @@ snck_string_copy(
     char const * const
         p_ref)
 {
-    char b_result;
-
     size_t i_ref_len = strlen(p_ref);
 
-    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, i_ref_len + 1);
+    return snck_string_copy_buffer(p_ctxt, p_string, p_ref, i_ref_len);
+
+} /* snck_string_copy() */
+
+char
+snck_string_copy_buffer(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    void const * const
+        p_buf,
+    size_t const
+        i_buf_len)
+{
+    char b_result;
+
+    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, i_buf_len + 1);
 
     if (p_string->p_buf)
     {
-        strcpy(p_string->p_buf, p_ref);
+        memcpy(p_string->p_buf, p_buf, i_buf_len);
 
-        p_string->i_buf_len = i_ref_len;
+        p_string->p_buf[i_buf_len] = '\000';
+
+        p_string->i_buf_len = i_buf_len;
 
         b_result = 1;
     }
@@ -90,7 +107,7 @@ snck_string_copy(
 
     return b_result;
 
-} /* snck_string_init() */
+} /* snck_string_copy_buffer() */
 
 char
 snck_string_append(
@@ -101,17 +118,34 @@ snck_string_append(
     char const * const
         p_ref)
 {
-    char b_result;
-
     size_t i_ref_len = strlen(p_ref);
 
-    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, p_string->i_buf_len + i_ref_len + 1);
+    return snck_string_append_buffer(p_ctxt, p_string, p_ref, i_ref_len);
+
+} /* snck_string_append() */
+
+char
+snck_string_append_buffer(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    void const * const
+        p_buf,
+    size_t const
+        i_buf_len)
+{
+    char b_result;
+
+    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, p_string->i_buf_len + i_buf_len + 1);
 
     if (p_string->p_buf)
     {
-        strcpy(p_string->p_buf + p_string->i_buf_len, p_ref);
+        memcpy(p_string->p_buf + p_string->i_buf_len, p_buf, i_buf_len);
 
-        p_string->i_buf_len += i_ref_len;
+        p_string->p_buf[p_string->i_buf_len + i_buf_len] = '\000';
+
+        p_string->i_buf_len += i_buf_len;
 
         b_result = 1;
     }
@@ -124,7 +158,7 @@ snck_string_append(
 
     return b_result;
 
-} /* snck_string_append() */
+} /* snck_string_append_buffer() */
 
 char
 snck_string_copy_object(
@@ -135,28 +169,7 @@ snck_string_copy_object(
     struct snck_string const * const
         p_object)
 {
-    char b_result;
-
-    size_t i_ref_len = p_object->i_buf_len;
-
-    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, i_ref_len + 1);
-
-    if (p_string->p_buf)
-    {
-        strcpy(p_string->p_buf, p_object->p_buf);
-
-        p_string->i_buf_len = i_ref_len;
-
-        b_result = 1;
-    }
-    else
-    {
-        p_string->i_buf_len = 0u;
-
-        b_result = 0;
-    }
-
-    return b_result;
+    return snck_string_copy_buffer(p_ctxt, p_string, p_object->p_buf, p_object->i_buf_len);
 
 } /* snck_string_init() */
 
@@ -169,28 +182,7 @@ snck_string_append_object(
     struct snck_string const * const
         p_object)
 {
-    char b_result;
-
-    size_t i_ref_len = p_object->i_buf_len;
-
-    p_string->p_buf = snck_heap_realloc(p_ctxt, p_string->p_buf, p_string->i_buf_len + i_ref_len + 1);
-
-    if (p_string->p_buf)
-    {
-        strcpy(p_string->p_buf + p_string->i_buf_len, p_object->p_buf);
-
-        p_string->i_buf_len += i_ref_len;
-
-        b_result = 1;
-    }
-    else
-    {
-        p_string->i_buf_len = 0u;
-
-        b_result = 0;
-    }
-
-    return b_result;
+    return snck_string_append_buffer(p_ctxt, p_string, p_object->p_buf, p_object->i_buf_len);
 
 } /* snck_string_append_object() */
 
