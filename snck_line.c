@@ -19,11 +19,11 @@ Description:
 /* Context */
 #include "snck_ctxt.h"
 
-/* Module */
-#include "snck_line.h"
-
 /* String */
 #include "snck_string.h"
+
+/* Module */
+#include "snck_line.h"
 
 /* Information */
 #include "snck_info.h"
@@ -673,12 +673,14 @@ snck_completion(
 
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
 
-char const *
+char
 snck_line_get(
     struct snck_ctxt const * const
-        p_ctxt)
+        p_ctxt,
+    struct snck_string * const
+        p_string)
 {
-    char * a_split = NULL;
+    char b_result;
 
     struct snck_string o_prompt;
 
@@ -716,12 +718,7 @@ snck_line_get(
                     snck_history_unload(p_ctxt);
                 }
 
-                a_split = snck_heap_realloc(p_ctxt, NULL, strlen(p_temp) + 1);
-
-                if (a_split)
-                {
-                    strcpy(a_split, p_temp);
-                }
+                b_result = snck_string_copy(p_ctxt, p_string, p_temp);
 
                 free(p_temp);
             }
@@ -730,43 +727,48 @@ snck_line_get(
                 if (errno == EAGAIN)
                 {
                     /* ctrl+c was pressed */
-                    a_split = snck_heap_realloc(p_ctxt, NULL, 2u);
+                    static char const a_newline[] = { '\n' };
 
-                    if (a_split)
-                    {
-                        a_split[0] = '\n';
-
-                        a_split[1] = '\000';
-                    }
+                    b_result = snck_string_copy_buffer(p_ctxt, p_string, a_newline, sizeof(a_newline));
                 }
                 else
                 {
-                    a_split = NULL;
+                    b_result = 0;
                 }
             }
         }
 #else /* #if defined(SNCK_FEATURE_LINENOISE) */
         {
-            a_split = snck_heap_realloc(p_ctxt, NULL, 65536u);
-
-            if (a_split)
+            if (snck_string_resize(p_ctxt, p_string, 65536u))
             {
                 fprintf(stdout, "%s", o_prompt.p_buf);
 
                 fflush(stdout);
 
-                if (NULL != fgets(a_split, 65536u, stdin))
+                if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, stdin))
                 {
+                    p_string->i_buf_len = strlen(p_string->p_buf);
+
+                    b_result = 1;
                 }
                 else
                 {
-                    snck_heap_realloc(p_ctxt, a_split, 0u);
+                    snck_string_resize(p_ctxt, p_string, 0u);
 
-                    a_split = NULL;
+                    b_result = 0;
                 }
+            }
+            else
+            {
+                b_result = 0;
             }
         }
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
+    }
+    else
+    {
+        b_result = 0;
     }
 
     snck_string_cleanup(p_ctxt, &(o_prompt));
@@ -778,18 +780,9 @@ snck_line_get(
     }
 #endif
 
-    return a_split;
+
+    return b_result;
 
 } /* snck_line_get() */
-
-void
-snck_line_put(
-    struct snck_ctxt const * const
-        p_ctxt,
-    char const * const
-        p_buf)
-{
-    snck_heap_realloc(p_ctxt, (void *)(p_buf), 0u);
-} /* snck_line_put() */
 
 /* end-of-file: snck_line.c */

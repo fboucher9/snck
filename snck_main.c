@@ -494,7 +494,7 @@ snck_fork_and_exec(
     }
     else
     {
-        static char a_fmt[] = "exec %s";
+        static char const a_fmt[] = "exec %s";
 
         a_split = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_line) + 1);
 
@@ -614,7 +614,7 @@ static
 char
 snck_execute_child(
     struct snck_ctxt const * const p_ctxt,
-    char const * const p_line)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
@@ -622,7 +622,7 @@ snck_execute_child(
 
     int i_cmd_len;
 
-    if (snck_find_word(p_line, &(p_cmd), &(i_cmd_len)))
+    if (snck_find_word(p_line->p_buf, &(p_cmd), &(i_cmd_len)))
     {
         if ('#' == p_cmd[0u])
         {
@@ -670,7 +670,7 @@ snck_execute_child(
         }
         else
         {
-            b_result = snck_fork_and_exec(p_ctxt, p_line);
+            b_result = snck_fork_and_exec(p_ctxt, p_line->p_buf);
         }
     }
     else
@@ -693,13 +693,13 @@ snck_read_file(
 
     while (b_result && b_continue)
     {
-        char const * p_line;
+        struct snck_string o_line;
 
-        p_line = snck_line_get(p_ctxt);
+        snck_string_init(p_ctxt, &(o_line));
 
-        if (p_line)
+        if (snck_line_get(p_ctxt, &(o_line)))
         {
-            if (snck_execute_child(p_ctxt, p_line))
+            if (snck_execute_child(p_ctxt, &(o_line)))
             {
             }
             else
@@ -708,13 +708,13 @@ snck_read_file(
 
                 b_continue = 0;
             }
-
-            snck_line_put(p_ctxt, p_line);
         }
         else
         {
             b_continue = 0;
         }
+
+        snck_string_cleanup(p_ctxt, &(o_line));
     }
 
     return b_result;
