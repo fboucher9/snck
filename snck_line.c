@@ -782,7 +782,7 @@ snck_line_get(
     {
         if (snck_string_resize(p_ctxt, p_string, 65536u))
         {
-            if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, stdin))
+            if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, p_file))
             {
                 p_string->i_buf_len = strlen(p_string->p_buf);
 
