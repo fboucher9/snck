@@ -75,19 +75,23 @@ snck_find_word_end(
 static
 char
 snck_find_word(
-    char const * p_args,
-    char const * * p_word_buf,
-    int * p_word_len)
+    struct snck_string const * const p_line,
+    struct snck_string * const p_cmd,
+    struct snck_string * const p_args)
 {
     char b_found;
 
-    int i_args_it = snck_find_word_begin(p_args);
+    int i_args_it = snck_find_word_begin(p_line->p_buf);
 
-    if (p_args[i_args_it])
+    if (p_line->p_buf[i_args_it])
     {
-        *p_word_buf = p_args + i_args_it;
+        int i_word_len = snck_find_word_end(p_line->p_buf + i_args_it);
 
-        *p_word_len = snck_find_word_end(p_args + i_args_it);
+        snck_string_init_ref_buffer(p_cmd, p_line->p_buf + i_args_it, i_word_len);
+
+        i_word_len += snck_find_word_begin(p_line->p_buf + i_args_it + i_word_len);
+
+        snck_string_init_ref_buffer(p_args, p_line->p_buf + i_args_it + i_word_len, p_line->i_buf_len - i_args_it - i_word_len);
 
         b_found = 1;
     }
@@ -227,7 +231,7 @@ static
 char
 snck_builtin_cd(
     struct snck_ctxt const * const p_ctxt,
-    char const * p_args)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
@@ -237,18 +241,16 @@ snck_builtin_cd(
 
     char const * p_path_expand = NULL;
 
-    int i_args_it = snck_find_word_begin(p_args);
-
-    if (p_args[i_args_it])
+    if (p_line->p_buf[0u])
     {
-        if (0 == strcmp(p_args + i_args_it, "-"))
+        if (0 == strcmp(p_line->p_buf, "-"))
         {
             p_path = p_ctxt->p_info->o_old_pwd.p_buf;
         }
         else
         {
             /* Use sh -c 'echo ...' to expand the argument */
-            p_path_expand = snck_expand_get(p_ctxt, p_args + i_args_it);
+            p_path_expand = snck_expand_get(p_ctxt, p_line->p_buf);
 
             p_path = p_path_expand;
         }
@@ -304,27 +306,25 @@ static
 char
 snck_builtin_set(
     struct snck_ctxt const * const p_ctxt,
-    char const * p_args)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
-    char const * p_name;
+    struct snck_string o_name;
 
-    int i_name_len;
+    struct snck_string o_rest;
 
-    if (snck_find_word(p_args, &(p_name), &(i_name_len)))
+    snck_string_init(p_ctxt, &(o_name));
+
+    snck_string_init(p_ctxt, &(o_rest));
+
+    if (snck_find_word(p_line, &(o_name), &(o_rest)))
     {
-        struct snck_string o_name;
-
-        snck_string_init_ref_buffer(&(o_name), p_name, i_name_len);
-
-        i_name_len += snck_find_word_begin(p_name + i_name_len);
-
-        if (p_name[i_name_len])
+        if (o_rest.p_buf[0u])
         {
             char const * p_value;
 
-            p_value = snck_expand_get(p_ctxt, p_name + i_name_len);
+            p_value = snck_expand_get(p_ctxt, o_rest.p_buf);
 
             if (p_value)
             {
@@ -371,6 +371,10 @@ snck_builtin_set(
         }
     }
 
+    snck_string_cleanup(p_ctxt, &(o_rest));
+
+    snck_string_cleanup(p_ctxt, &(o_name));
+
     b_result = 1;
 
     return b_result;
@@ -381,25 +385,11 @@ static
 char
 snck_builtin_unset(
     struct snck_ctxt const * const p_ctxt,
-    char const * p_args)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
-    char const * p_name;
-
-    int i_name_len;
-
-    if (snck_find_word(p_args, &(p_name), &(i_name_len)))
-    {
-        struct snck_string o_name;
-
-        snck_string_init_ref_buffer(&(o_name), p_name, i_name_len);
-
-        snck_env_set(p_ctxt, &(o_name), NULL);
-    }
-    else
-    {
-    }
+    snck_env_set(p_ctxt, p_line, NULL);
 
     b_result = 1;
 
@@ -410,17 +400,18 @@ snck_builtin_unset(
 static
 char
 snck_builtin_shell(
-    char const * p_args)
+    struct snck_ctxt const * const p_ctxt,
+    struct snck_string const * const p_line)
 {
     char b_result;
 
-    int i_args_it = snck_find_word_begin(p_args);
+    (void)(p_ctxt);
 
-    if (p_args[i_args_it])
+    if (p_line->p_buf[0u])
     {
         char * l_argv[2u];
 
-        l_argv[0u] = (char *)(p_args + i_args_it);
+        l_argv[0u] = (char *)(p_line->p_buf);
 
         l_argv[1u] = NULL;
 
@@ -443,7 +434,7 @@ snck_builtin_shell(
 
 static
 char
-snck_fork_and_exec(
+snck_file_exec_line(
     struct snck_ctxt const * const p_ctxt,
     char const * const p_line)
 {
@@ -530,13 +521,13 @@ snck_fork_and_exec(
 
     return b_result;
 
-} /* snck_fork_and_exec() */
+} /* snck_file_exec_line() */
 
 static
 char
 snck_builtin_hist(
     struct snck_ctxt const * const p_ctxt,
-    char const * const p_args)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
@@ -546,7 +537,7 @@ snck_builtin_hist(
 
     struct snck_list * p_it;
 
-    (void)(p_args);
+    (void)(p_line);
 
     snck_history_load(p_ctxt);
 
@@ -588,17 +579,74 @@ snck_builtin_hist(
 
 static
 char
-snck_execute_child(
+snck_builtin_source(
     struct snck_ctxt const * const p_ctxt,
     struct snck_string const * const p_line)
 {
     char b_result;
 
-    char const * p_cmd;
+    if (p_line->p_buf[0u])
+    {
+        char const * p_path;
 
-    int i_cmd_len;
+        p_path = snck_expand_get(p_ctxt, p_line->p_buf);
 
-    if (snck_find_word(p_line->p_buf, &(p_cmd), &(i_cmd_len)))
+        if (p_path)
+        {
+            if (snck_file_read(p_ctxt, p_path))
+            {
+            }
+            else
+            {
+                fprintf(stderr, "snck: error opening file\n");
+            }
+
+            snck_expand_put(p_ctxt, p_path);
+        }
+    }
+    else
+    {
+        fprintf(stderr, "snck: missing argument\n");
+    }
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_builtin_source() */
+
+static
+char
+snck_builtin_exit(
+    struct snck_ctxt const * const p_ctxt,
+    struct snck_string const * const p_line)
+{
+    (void)(p_ctxt);
+
+    (void)(p_line);
+
+    exit(0);
+
+    return 1;
+}
+
+static
+char
+snck_file_decode_line(
+    struct snck_ctxt const * const p_ctxt,
+    struct snck_string const * const p_line)
+{
+    char b_result;
+
+    struct snck_string o_cmd;
+
+    struct snck_string o_args;
+
+    snck_string_init(p_ctxt, &(o_cmd));
+
+    snck_string_init(p_ctxt, &(o_args));
+
+    if (snck_find_word(p_line, &(o_cmd), &(o_args)))
     {
         static char const a_name_cd[] = { 'c', 'd' };
 
@@ -609,6 +657,8 @@ snck_execute_child(
         static char const a_name_shell[] = { 's', 'h', 'e', 'l', 'l' };
 
         static char const a_name_hist[] = { 'h', 'i', 's', 't' };
+
+        static char const a_name_source[] = { 's', 'o', 'u', 'r', 'c', 'e' };
 
         static char const a_name_exit[] = { 'e', 'x', 'i', 't' };
 
@@ -624,52 +674,54 @@ snck_execute_child(
 
         static struct snck_string const o_name_hist = { (char *)(a_name_hist), sizeof(a_name_hist), 0u };
 
+        static struct snck_string const o_name_source = { (char *)(a_name_source), sizeof(a_name_source), 0u };
+
         static struct snck_string const o_name_exit = { (char *)(a_name_exit), sizeof(a_name_exit), 0u };
 
         static struct snck_string const o_name_logout = { (char *)(a_name_logout), sizeof(a_name_logout), 0u };
 
-        struct snck_string o_cmd;
-
-        snck_string_init_ref_buffer(&(o_cmd), p_cmd, i_cmd_len);
-
-        if ('#' == p_cmd[0u])
-        {
-            /* This is a comment line */
-            b_result = 1;
-        }
-        else if (0 == i_cmd_len)
+        if (0 == o_cmd.i_buf_len)
         {
             /* Empty line */
             b_result = 1;
         }
+        else if ('#' == o_cmd.p_buf[0u])
+        {
+            /* This is a comment line */
+            b_result = 1;
+        }
         else if (0 == snck_string_compare(&(o_cmd), &(o_name_cd)))
         {
-            b_result = snck_builtin_cd(p_ctxt, p_cmd + i_cmd_len);
+            b_result = snck_builtin_cd(p_ctxt, &(o_args));
         }
         else if (0 == snck_string_compare(&(o_cmd), &(o_name_set)))
         {
-            b_result = snck_builtin_set(p_ctxt, p_cmd + i_cmd_len);
+            b_result = snck_builtin_set(p_ctxt, &(o_args));
         }
         else if (0 == snck_string_compare(&(o_cmd), &(o_name_unset)))
         {
-            b_result = snck_builtin_unset(p_ctxt, p_cmd + i_cmd_len);
+            b_result = snck_builtin_unset(p_ctxt, &(o_args));
         }
         else if (0 == snck_string_compare(&(o_cmd), &(o_name_shell)))
         {
-            b_result = snck_builtin_shell(p_cmd + i_cmd_len);
+            b_result = snck_builtin_shell(p_ctxt, &(o_args));
         }
         else if (0 == snck_string_compare(&(o_cmd), &(o_name_hist)))
         {
-            b_result = snck_builtin_hist(p_ctxt, p_cmd + i_cmd_len);
+            b_result = snck_builtin_hist(p_ctxt, &(o_args));
+        }
+        else if (0 == snck_string_compare(&(o_cmd), &(o_name_source)))
+        {
+            b_result = snck_builtin_source(p_ctxt, &(o_args));
         }
         else if ((0 == snck_string_compare(&(o_cmd), &(o_name_exit)))
             || (0 == snck_string_compare(&(o_cmd), &(o_name_logout))))
         {
-            exit(0);
+            b_result = snck_builtin_exit(p_ctxt, &(o_args));
         }
         else
         {
-            b_result = snck_fork_and_exec(p_ctxt, p_line->p_buf);
+            b_result = snck_file_exec_line(p_ctxt, p_line->p_buf);
         }
     }
     else
@@ -677,9 +729,13 @@ snck_execute_child(
         b_result = 1;
     }
 
+    snck_string_cleanup(p_ctxt, &(o_args));
+
+    snck_string_cleanup(p_ctxt, &(o_cmd));
+
     return b_result;
 
-} /* snck_execute_child() */
+} /* snck_file_decode_line() */
 
 /*
 
@@ -722,7 +778,7 @@ snck_file_read(
 
             if (snck_line_get(p_ctxt, p_file, &(o_line)))
             {
-                if (snck_execute_child(p_ctxt, &(o_line)))
+                if (snck_file_decode_line(p_ctxt, &(o_line)))
                 {
                 }
                 else
