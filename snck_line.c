@@ -45,6 +45,9 @@ Description:
 /* Heap */
 #include "snck_heap.h"
 
+/* Environment */
+#include "snck_env.h"
+
 /* Sorted list of strings */
 /* Sort by alphatical order */
 /* Sort by fuzzy order */
@@ -477,70 +480,67 @@ snck_completion(
         /* completing a file name or full path to program */
         else if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
         {
-            char * p_env;
+            static char a_name_path[] = { 'P', 'A', 'T', 'H' };
 
-            p_env = getenv("PATH");
+            static struct snck_string const o_name_path = { a_name_path, sizeof(a_name_path), 0u };
 
-            if (p_env)
+            struct snck_string o_value_path;
+
+            snck_string_init(p_ctxt, &(o_value_path));
+
+            if (snck_env_get(p_ctxt, &(o_name_path), &(o_value_path)))
             {
                 /* split of buffer */
-                char * p_temp;
+                char * p_comp;
 
-                p_temp = strdup(p_env);
+                p_comp = strtok(o_value_path.p_buf, ":");
 
-                if (p_temp)
+                while (p_comp)
                 {
-                    char * p_comp;
+                    /* enumerate executables in path */
+                    DIR * p_dir_object;
 
-                    p_comp = strtok(p_temp, ":");
+                    p_dir_object = opendir(p_comp);
 
-                    while (p_comp)
+                    if (p_dir_object)
                     {
-                        /* enumerate executables in path */
-                        DIR * p_dir_object;
+                        struct dirent * p_dir_entry;
 
-                        p_dir_object = opendir(p_comp);
+                        p_dir_entry = readdir(p_dir_object);
 
-                        if (p_dir_object)
+                        while (p_dir_entry)
                         {
-                            struct dirent * p_dir_entry;
-
-                            p_dir_entry = readdir(p_dir_object);
-
-                            while (p_dir_entry)
+                            if (DT_DIR != p_dir_entry->d_type)
                             {
-                                if (DT_DIR != p_dir_entry->d_type)
+                                if (0 == strncmp(p_dir_entry->d_name, buf + pos1, pos - pos1))
                                 {
-                                    if (0 == strncmp(p_dir_entry->d_name, buf + pos1, pos - pos1))
+                                    if (pos1 > 0)
                                     {
-                                        if (pos1 > 0)
-                                        {
-                                            sprintf(suggest, "%.*s%s", pos1, buf, p_dir_entry->d_name);
-                                        }
-                                        else
-                                        {
-                                            sprintf(suggest, "%s", p_dir_entry->d_name);
-                                        }
+                                        sprintf(suggest, "%.*s%s", pos1, buf, p_dir_entry->d_name);
+                                    }
+                                    else
+                                    {
+                                        sprintf(suggest, "%s", p_dir_entry->d_name);
+                                    }
 
-                                        if (0 != strcmp(suggest, buf))
-                                        {
-                                            snck_suggest_add(suggest, 0);
-                                        }
+                                    if (0 != strcmp(suggest, buf))
+                                    {
+                                        snck_suggest_add(suggest, 0);
                                     }
                                 }
-
-                                p_dir_entry = readdir(p_dir_object);
                             }
 
-                            closedir(p_dir_object);
+                            p_dir_entry = readdir(p_dir_object);
                         }
 
-                        p_comp = strtok(NULL, ":");
+                        closedir(p_dir_object);
                     }
 
-                    free(p_temp);
+                    p_comp = strtok(NULL, ":");
                 }
             }
+
+            snck_string_cleanup(p_ctxt, &(o_value_path));
         }
         else
         {
@@ -680,9 +680,11 @@ snck_line_get(
 {
     char * a_split = NULL;
 
-    char const * p_prompt = snck_prompt_get(p_ctxt);
+    struct snck_string o_prompt;
 
-    if (p_prompt)
+    snck_string_init(p_ctxt, &(o_prompt));
+
+    if (snck_prompt_get(p_ctxt, &(o_prompt)))
     {
 
 #if defined(SNCK_FEATURE_LINENOISE)
@@ -695,7 +697,7 @@ snck_line_get(
 
             errno = 0;
 
-            p_temp = linenoise(p_prompt);
+            p_temp = linenoise(o_prompt.p_buf);
 
             g_ctxt = NULL;
 
@@ -749,7 +751,7 @@ snck_line_get(
 
             if (a_split)
             {
-                fprintf(stdout, "%s", p_prompt);
+                fprintf(stdout, "%s", o_prompt.p_buf);
 
                 fflush(stdout);
 
@@ -765,9 +767,9 @@ snck_line_get(
             }
         }
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
-
-        snck_prompt_put(p_ctxt, p_prompt);
     }
+
+    snck_string_cleanup(p_ctxt, &(o_prompt));
 
 #if 0
     if (!b_result)

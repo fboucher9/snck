@@ -47,13 +47,36 @@ snck_string_init(
         p_string);
 
 void
+snck_string_init_ref(
+    struct snck_string * const
+        p_string,
+    char const * const
+        p_ref);
+
+void
+snck_string_init_ref_buffer(
+    struct snck_string * const
+        p_string,
+    void const * const
+        p_buf,
+    size_t const
+        i_buf_len);
+
+void
+snck_string_init_ref_object(
+    struct snck_string * const
+        p_string,
+    struct snck_string const * const
+        p_object);
+
+void
 snck_string_cleanup(
     struct snck_ctxt const * const
         p_ctxt,
     struct snck_string * const
         p_string);
 
-void
+char
 snck_string_ref(
     struct snck_ctxt const * const
         p_ctxt,
@@ -61,6 +84,35 @@ snck_string_ref(
         p_string,
     char const * const
         p_ref);
+
+char
+snck_string_ref_buffer(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    void const * const
+        p_buf,
+    size_t const
+        i_buf_len);
+
+char
+snck_string_ref_object(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    struct snck_string const * const
+        p_object);
+
+char
+snck_string_resize(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    size_t const
+        i_alloc_len);
 
 char
 snck_string_copy(
@@ -83,6 +135,15 @@ snck_string_copy_buffer(
         i_buf_len);
 
 char
+snck_string_copy_object(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_string,
+    struct snck_string const * const
+        p_object);
+
+char
 snck_string_append(
     struct snck_ctxt const * const
         p_ctxt,
@@ -101,15 +162,6 @@ snck_string_append_buffer(
         p_buf,
     size_t const
         i_buf_len);
-
-char
-snck_string_copy_object(
-    struct snck_ctxt const * const
-        p_ctxt,
-    struct snck_string * const
-        p_string,
-    struct snck_string const * const
-        p_object);
 
 char
 snck_string_append_object(

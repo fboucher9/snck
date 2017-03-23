@@ -31,6 +31,9 @@ Description:
 /* Password database */
 #include "snck_passwd.h"
 
+/* Env */
+#include "snck_env.h"
+
 static
 char
 snck_info_detect_user(
@@ -42,15 +45,17 @@ snck_info_detect_user(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
+    struct snck_string o_name;
+
+    snck_string_init_ref(&(o_name), "USER");
+
     b_result = 1;
 
     if (b_result)
     {
-        char * p_env = getenv("USER");
-
-        if (p_env)
+        if (snck_env_get(p_ctxt, &(o_name), &(p_info->o_user)))
         {
-            b_result = snck_string_copy(p_ctxt, &(p_info->o_user), p_env);
+            b_result = 1;
         }
         else
         {
@@ -69,13 +74,7 @@ snck_info_detect_user(
 
     if (b_result)
     {
-        if (0 == setenv("USER", p_info->o_user.p_buf, 1))
-        {
-        }
-        else
-        {
-            b_result = 0;
-        }
+        b_result = snck_env_set(p_ctxt, &(o_name), &(p_info->o_user));
     }
 
     return b_result;
@@ -93,15 +92,17 @@ snck_info_detect_home(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
+    struct snck_string o_name;
+
+    snck_string_init_ref(&(o_name), "HOME");
+
     b_result = 1;
 
     if (b_result)
     {
-        char * p_env = getenv("HOME");
-
-        if (p_env)
+        if (snck_env_get(p_ctxt, &(o_name), &(p_info->o_home)))
         {
-            b_result = snck_string_copy(p_ctxt, &(p_info->o_home), p_env);
+            b_result = 1;
         }
         else
         {
@@ -125,7 +126,7 @@ snck_info_detect_home(
 
     if (b_result)
     {
-        if (0 == setenv("HOME", p_info->o_home.p_buf, 1))
+        if (snck_env_set(p_ctxt, &(o_name), &(p_info->o_home)))
         {
         }
         else
@@ -217,7 +218,15 @@ snck_info_update_wd(
                 /* Detect if value has changed */
                 if (!p_info->o_pwd.p_buf || (0 != strcmp(p_temp, p_info->o_pwd.p_buf)))
                 {
-                    if (0 == setenv("PWD", p_temp, 1))
+                    struct snck_string o_name;
+
+                    struct snck_string o_value;
+
+                    snck_string_init_ref(&(o_name), "PWD");
+
+                    snck_string_init_ref(&(o_value), p_temp);
+
+                    if (snck_env_set(p_ctxt, &(o_name), &(o_value)))
                     {
                         if (p_info->o_pwd.p_buf)
                         {

@@ -41,6 +41,9 @@ Description:
 /* History */
 #include "snck_history.h"
 
+/* Env */
+#include "snck_env.h"
+
 /* */
 #if defined(SNCK_FEATURE_LINENOISE)
 #include <linenoise.h>
@@ -329,63 +332,52 @@ snck_builtin_set(
 {
     char b_result;
 
-    int i_result;
-
     char const * p_name;
 
     int i_name_len;
 
     if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        char * a_name;
+        struct snck_string o_name;
 
-        a_name = snck_heap_realloc(p_ctxt, NULL, i_name_len + 1);
+        snck_string_init_ref_buffer(&(o_name), p_name, i_name_len);
 
-        if (a_name)
+        i_name_len += snck_find_word_begin(p_name + i_name_len);
+
+        if (p_name[i_name_len])
         {
-            memcpy(a_name, p_name, i_name_len);
+            char const * p_value;
 
-            a_name[i_name_len] = '\000';
+            p_value = snck_expand_get(p_ctxt, p_name + i_name_len);
 
-            i_name_len += snck_find_word_begin(p_name + i_name_len);
-
-            if (p_name[i_name_len])
+            if (p_value)
             {
-                char const * p_value;
+                struct snck_string o_value;
 
-                p_value = snck_expand_get(p_ctxt, p_name + i_name_len);
+                snck_string_init_ref(&(o_value), p_value);
 
-                if (p_value)
-                {
-                    i_result = setenv(a_name, p_value, 1);
+                snck_env_set(p_ctxt, &(o_name), &(o_value));
 
-                    (void)(i_result);
-
-                    snck_expand_put(p_ctxt, p_value);
-                }
+                snck_expand_put(p_ctxt, p_value);
             }
-            else
-            {
-                /* */
-                char * p_value;
-
-                p_value = getenv(a_name);
-
-                if (p_value)
-                {
-                    fprintf(stdout, "%s\n", p_value);
-                }
-                else
-                {
-                    fprintf(stderr, "not set\n");
-                }
-            }
-
-            snck_heap_realloc(p_ctxt, a_name, 0u);
         }
         else
         {
-            fprintf(stderr, "snck: name too long\n");
+            /* */
+            struct snck_string o_value;
+
+            snck_string_init(p_ctxt, &(o_value));
+
+            if (snck_env_get(p_ctxt, &(o_name), &(o_value)))
+            {
+                fprintf(stdout, "%.*s\n", o_value.i_buf_len, o_value.p_buf);
+            }
+            else
+            {
+                fprintf(stderr, "not set\n");
+            }
+
+            snck_string_cleanup(p_ctxt, &(o_value));
         }
     }
     else
@@ -417,34 +409,17 @@ snck_builtin_unset(
 {
     char b_result;
 
-    int i_result;
-
     char const * p_name;
 
     int i_name_len;
 
     if (snck_find_word(p_args, &(p_name), &(i_name_len)))
     {
-        char * a_name;
+        struct snck_string o_name;
 
-        a_name = snck_heap_realloc(p_ctxt, NULL, i_name_len + 1);
+        snck_string_init_ref_buffer(&(o_name), p_name, i_name_len);
 
-        if (a_name)
-        {
-            memcpy(a_name, p_name, i_name_len);
-
-            a_name[i_name_len] = '\000';
-
-            i_result = unsetenv(a_name);
-
-            (void)(i_result);
-
-            snck_heap_realloc(p_ctxt, a_name, 0u);
-        }
-        else
-        {
-            fprintf(stderr, "snck: name too long\n");
-        }
+        snck_env_set(p_ctxt, &(o_name), NULL);
     }
     else
     {
@@ -752,6 +727,55 @@ static void snck_sigchld(int unused)
 }
 
 static
+void
+snck_signal_setup(
+    struct snck_ctxt const * const p_ctxt)
+{
+    (void)(p_ctxt);
+
+    /* install a SIGCHLD handler */
+    signal(SIGCHLD, snck_sigchld);
+
+    signal(SIGINT, SIG_IGN);
+
+    signal(SIGHUP, SIG_IGN);
+
+    /* signal(SIGTSTP, SIG_IGN); */
+
+}
+
+static
+void
+snck_env_setup(
+    struct snck_ctxt const * const p_ctxt)
+{
+    static char a_name_shlvl[] = { 'S', 'H', 'L', 'V', 'L' };
+
+    static char a_name_underscore[] = { '_' };
+
+    static char a_name_mail[] = { 'M', 'A', 'I', 'L' };
+
+    static char a_name_oldpwd[] = { 'O', 'L', 'D', 'P', 'W', 'D' };
+
+    static struct snck_string const o_name_shlvl = { a_name_shlvl, sizeof(a_name_shlvl), 0u };
+
+    static struct snck_string const o_name_underscore = { a_name_underscore, sizeof(a_name_underscore), 0u };
+
+    static struct snck_string const o_name_mail = { a_name_mail, sizeof(a_name_mail), 0u };
+
+    static struct snck_string const o_name_oldpwd = { a_name_oldpwd, sizeof(a_name_oldpwd), 0u };
+
+    snck_env_set(p_ctxt, &(o_name_shlvl), NULL);
+
+    snck_env_set(p_ctxt, &(o_name_underscore), NULL);
+
+    snck_env_set(p_ctxt, &(o_name_mail), NULL);
+
+    snck_env_set(p_ctxt, &(o_name_oldpwd), NULL);
+
+} /* snck_env_setup() */
+
+static
 char
 snck_main_init(
     struct snck_main_ctxt * const
@@ -779,22 +803,9 @@ snck_main_init(
 
         if (snck_info_init(p_ctxt))
         {
-            /* install a SIGCHLD handler */
-            signal(SIGCHLD, snck_sigchld);
+            snck_signal_setup(p_ctxt);
 
-            signal(SIGINT, SIG_IGN);
-
-            signal(SIGHUP, SIG_IGN);
-
-            /* signal(SIGTSTP, SIG_IGN); */
-
-            unsetenv("SHLVL");
-
-            unsetenv("_");
-
-            unsetenv("MAIL");
-
-            unsetenv("OLDPWD");
+            snck_env_setup(p_ctxt);
 
             snck_line_init(p_ctxt);
 

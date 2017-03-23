@@ -20,16 +20,11 @@ Description:
 /* Predefine context handle */
 struct snck_ctxt;
 
-char const *
+char
 snck_prompt_get(
     struct snck_ctxt const * const
-        p_ctxt);
-
-void
-snck_prompt_put(
-    struct snck_ctxt const * const
         p_ctxt,
-    char const * const
-        p_buf);
+    struct snck_string * const
+        p_prompt);
 
 /* end-of-file: snck_prompt.h */
