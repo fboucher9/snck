@@ -328,4 +328,49 @@ snck_string_append_object(
 
 } /* snck_string_append_object() */
 
+int
+snck_string_compare(
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2)
+{
+    int i_result;
+
+    size_t i_pos1;
+
+    size_t i_pos2;
+
+    i_result = 0;
+
+    i_pos1 = 0u;
+
+    i_pos2 = 0u;
+
+    while ((0 == i_result) && ((i_pos1 < p_ref1->i_buf_len) || (i_pos2 < p_ref2->i_buf_len)))
+    {
+        char c_ref1;
+
+        char c_ref2;
+
+        c_ref1 = (i_pos1 < p_ref1->i_buf_len) ? p_ref1->p_buf[i_pos1] : '\000';
+
+        c_ref2 = (i_pos2 < p_ref2->i_buf_len) ? p_ref2->p_buf[i_pos2] : '\000';
+
+        if (c_ref1 == c_ref2)
+        {
+            i_pos1 ++;
+
+            i_pos2 ++;
+        }
+        else
+        {
+            i_result = (c_ref1 - c_ref2);
+        }
+    }
+
+    return i_result;
+
+} /* snck_string_compare() */
+
 /* end-of-file: snck_string.c */

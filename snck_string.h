@@ -172,4 +172,11 @@ snck_string_append_object(
     struct snck_string const * const
         p_object);
 
+int
+snck_string_compare(
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2);
+
 /* end-of-file: snck_string.h */

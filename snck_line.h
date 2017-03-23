@@ -49,6 +49,8 @@ char
 snck_line_get(
     struct snck_ctxt const * const
         p_ctxt,
+    FILE * const
+        p_file,
     struct snck_string * const
         p_string);
 

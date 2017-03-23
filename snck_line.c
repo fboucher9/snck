@@ -677,101 +677,129 @@ char
 snck_line_get(
     struct snck_ctxt const * const
         p_ctxt,
+    FILE * const
+        p_file,
     struct snck_string * const
         p_string)
 {
     char b_result;
 
-    struct snck_string o_prompt;
-
-    snck_string_init(p_ctxt, &(o_prompt));
-
-    if (snck_prompt_get(p_ctxt, &(o_prompt)))
+    if (stdin == p_file)
     {
+        struct snck_string o_prompt;
+
+        snck_string_init(p_ctxt, &(o_prompt));
+
+        if (snck_prompt_get(p_ctxt, &(o_prompt)))
+        {
 
 #if defined(SNCK_FEATURE_LINENOISE)
-        {
-            char * p_temp;
-
-            linenoiseSetCompletionCallback(snck_completion);
-
-            g_ctxt = p_ctxt;
-
-            errno = 0;
-
-            p_temp = linenoise(o_prompt.p_buf);
-
-            g_ctxt = NULL;
-
-            if (p_temp)
             {
-                if ((' ' != p_temp[0u]) && ('\000' != p_temp[0u]))
+                char * p_temp;
+
+                linenoiseSetCompletionCallback(snck_completion);
+
+                g_ctxt = p_ctxt;
+
+                errno = 0;
+
+                p_temp = linenoise(o_prompt.p_buf);
+
+                g_ctxt = NULL;
+
+                if (p_temp)
                 {
-                    /* Detect duplicate entries... */
+                    if ((' ' != p_temp[0u]) && ('\000' != p_temp[0u]))
+                    {
+                        /* Detect duplicate entries... */
 
-                    snck_history_load(p_ctxt);
+                        snck_history_load(p_ctxt);
 
-                    snck_history_add(p_ctxt, p_temp);
+                        snck_history_add(p_ctxt, p_temp);
 
-                    snck_history_save(p_ctxt);
+                        snck_history_save(p_ctxt);
 
-                    snck_history_unload(p_ctxt);
-                }
+                        snck_history_unload(p_ctxt);
+                    }
 
-                b_result = snck_string_copy(p_ctxt, p_string, p_temp);
+                    b_result = snck_string_copy(p_ctxt, p_string, p_temp);
 
-                free(p_temp);
-            }
-            else
-            {
-                if (errno == EAGAIN)
-                {
-                    /* ctrl+c was pressed */
-                    static char const a_newline[] = { '\n' };
-
-                    b_result = snck_string_copy_buffer(p_ctxt, p_string, a_newline, sizeof(a_newline));
+                    free(p_temp);
                 }
                 else
                 {
-                    b_result = 0;
+                    if (errno == EAGAIN)
+                    {
+                        /* ctrl+c was pressed */
+                        static char const a_newline[] = { '\n' };
+
+                        b_result = snck_string_copy_buffer(p_ctxt, p_string, a_newline, sizeof(a_newline));
+                    }
+                    else
+                    {
+                        b_result = 0;
+                    }
                 }
             }
-        }
 #else /* #if defined(SNCK_FEATURE_LINENOISE) */
-        {
-            if (snck_string_resize(p_ctxt, p_string, 65536u))
             {
-                fprintf(stdout, "%s", o_prompt.p_buf);
-
-                fflush(stdout);
-
-                if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, stdin))
+                if (snck_string_resize(p_ctxt, p_string, 65536u))
                 {
-                    p_string->i_buf_len = strlen(p_string->p_buf);
+                    fprintf(stdout, "%s", o_prompt.p_buf);
 
-                    b_result = 1;
+                    fflush(stdout);
+
+                    if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, stdin))
+                    {
+                        p_string->i_buf_len = strlen(p_string->p_buf);
+
+                        b_result = 1;
+                    }
+                    else
+                    {
+                        snck_string_resize(p_ctxt, p_string, 0u);
+
+                        b_result = 0;
+                    }
                 }
                 else
                 {
-                    snck_string_resize(p_ctxt, p_string, 0u);
-
                     b_result = 0;
                 }
             }
-            else
-            {
-                b_result = 0;
-            }
-        }
 #endif /* #if defined(SNCK_FEATURE_LINENOISE) */
+
+        }
+        else
+        {
+            b_result = 0;
+        }
+
+        snck_string_cleanup(p_ctxt, &(o_prompt));
 
     }
     else
     {
-        b_result = 0;
-    }
+        if (snck_string_resize(p_ctxt, p_string, 65536u))
+        {
+            if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, stdin))
+            {
+                p_string->i_buf_len = strlen(p_string->p_buf);
 
-    snck_string_cleanup(p_ctxt, &(o_prompt));
+                b_result = 1;
+            }
+            else
+            {
+                snck_string_resize(p_ctxt, p_string, 0u);
+
+                b_result = 0;
+            }
+        }
+        else
+        {
+            b_result = 0;
+        }
+    }
 
 #if 0
     if (!b_result)
