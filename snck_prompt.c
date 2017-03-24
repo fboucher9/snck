@@ -308,7 +308,7 @@ snck_prompt_get(
     }
     else
     {
-        b_result = snck_string_ref(p_ctxt, p_out, " > ");
+        b_result = snck_string_ref(p_ctxt, p_out, "> ");
     }
 
     return b_result;

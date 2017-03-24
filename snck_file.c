@@ -439,7 +439,7 @@ static
 char
 snck_file_exec_line(
     struct snck_ctxt const * const p_ctxt,
-    char const * const p_line)
+    struct snck_string const * const p_line)
 {
     char b_result;
 
@@ -455,26 +455,30 @@ snck_file_exec_line(
 
     l_argv[1u] = "-c";
 
+#if 0
     /* detect if exec is possible */
-    if (strchr(p_line, ';') ||
-        strchr(p_line, '&') ||
-        strchr(p_line, '|'))
+    if (strchr(p_line->p_buf, ';') ||
+        strchr(p_line->p_buf, '&') ||
+        strchr(p_line->p_buf, '|'))
+#endif
     {
-        l_argv[2u] = (char *)(p_line);
+        l_argv[2u] = (char *)(p_line->p_buf);
     }
+#if 0
     else
     {
         static char const a_fmt[] = "exec %s";
 
-        a_split = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_line) + 1);
+        a_split = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + p_line->i_buf_len + 1);
 
         if (a_split)
         {
-            sprintf(a_split, a_fmt, p_line);
+            sprintf(a_split, a_fmt, p_line->p_buf);
         }
 
         l_argv[2u] = a_split;
     }
+#endif
 
     l_argv[3u] = NULL;
 
@@ -724,7 +728,7 @@ snck_file_decode_line(
         }
         else
         {
-            b_result = snck_file_exec_line(p_ctxt, p_line->p_buf);
+            b_result = snck_file_exec_line(p_ctxt, p_line);
         }
     }
     else

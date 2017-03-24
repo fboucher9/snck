@@ -150,6 +150,118 @@ snck_token_phrase_destroy(
 
 #endif
 
+static
+char
+snck_token_find_matching(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string const * const
+        p_line,
+    size_t * const
+        p_pos,
+    char const
+        c_match)
+{
+    char b_result;
+
+    char b_found;
+
+    b_found = 0;
+
+    b_result = 1;
+
+    while (b_result && !b_found && ((*p_pos) < p_line->i_buf_len))
+    {
+        if (c_match == p_line->p_buf[(*p_pos)])
+        {
+            b_found = 1;
+
+            (*p_pos) ++;
+        }
+        else if ('\\' == p_line->p_buf[(*p_pos)])
+        {
+            (*p_pos) ++;
+
+            if ((*p_pos) < p_line->i_buf_len)
+            {
+                (*p_pos) ++;
+            }
+        }
+        else if ('\'' == p_line->p_buf[(*p_pos)])
+        {
+            (*p_pos) ++;
+
+            b_result = 0;
+
+            while (!b_result && ((*p_pos) < p_line->i_buf_len))
+            {
+                if ('\'' == p_line->p_buf[(*p_pos)])
+                {
+                    b_result = 1;
+
+                    (*p_pos) ++;
+                }
+                else
+                {
+                    (*p_pos) ++;
+                }
+            }
+        }
+        else if ('$' == p_line->p_buf[(*p_pos)])
+        {
+            (*p_pos) ++;
+
+            if ((*p_pos) < p_line->i_buf_len)
+            {
+                if ('{' == p_line->p_buf[(*p_pos)])
+                {
+                    /* Search for closing */
+                    (*p_pos) ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, '}');
+                }
+                else if ('(' == p_line->p_buf[(*p_pos)])
+                {
+                    /* Search for closing */
+                    (*p_pos) ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, ')');
+                }
+                else
+                {
+                    (*p_pos) ++;
+                }
+            }
+        }
+        else if ('(' == p_line->p_buf[(*p_pos)])
+        {
+            /* Search for closing */
+            (*p_pos) ++;
+
+            b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, ')');
+        }
+        else if ('`' == p_line->p_buf[(*p_pos)])
+        {
+            /* Search for closing */
+            (*p_pos) ++;
+
+            b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, '`');
+        }
+        else
+        {
+            (*p_pos) ++;
+        }
+    }
+
+    if (!b_found)
+    {
+        b_result = 0;
+    }
+
+    return b_result;
+
+} /* snck_token_find_matching() */
+
 /*
 
 Function: snck_token_is_complete
@@ -216,30 +328,7 @@ snck_token_is_complete(
         {
             i_pos ++;
 
-            b_result = 0;
-
-            while (!b_result && (i_pos < p_line->i_buf_len))
-            {
-                if ('\"' == p_line->p_buf[i_pos])
-                {
-                    b_result = 1;
-
-                    i_pos ++;
-                }
-                else if ('\\' == p_line->p_buf[i_pos])
-                {
-                    i_pos ++;
-
-                    if (i_pos < p_line->i_buf_len)
-                    {
-                        i_pos ++;
-                    }
-                }
-                else
-                {
-                    i_pos ++;
-                }
-            }
+            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '\"');
         }
         else if ('$' == p_line->p_buf[i_pos])
         {
@@ -250,11 +339,15 @@ snck_token_is_complete(
                 {
                     /* Search for closing */
                     i_pos ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '}');
                 }
                 else if ('(' == p_line->p_buf[i_pos])
                 {
                     /* Search for closing */
                     i_pos ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, ')');
                 }
                 else
                 {
@@ -266,36 +359,15 @@ snck_token_is_complete(
         {
             /* Search for closing */
             i_pos ++;
+
+            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, ')');
         }
         else if ('`' == p_line->p_buf[i_pos])
         {
             /* Search for closing */
             i_pos ++;
 
-            b_result = 0;
-
-            while (!b_result && (i_pos < p_line->i_buf_len))
-            {
-                if ('`' == p_line->p_buf[i_pos])
-                {
-                    b_result = 1;
-
-                    i_pos ++;
-                }
-                else if ('\\' == p_line->p_buf[i_pos])
-                {
-                    i_pos ++;
-
-                    if (i_pos < p_line->i_buf_len)
-                    {
-                        i_pos ++;
-                    }
-                }
-                else
-                {
-                    i_pos ++;
-                }
-            }
+            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '`');
         }
         else
         {
