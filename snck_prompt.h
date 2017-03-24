@@ -25,6 +25,8 @@ snck_prompt_get(
     struct snck_ctxt const * const
         p_ctxt,
     struct snck_string * const
-        p_prompt);
+        p_prompt,
+    char const
+        b_overflow);
 
 /* end-of-file: snck_prompt.h */

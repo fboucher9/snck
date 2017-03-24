@@ -272,35 +272,44 @@ snck_prompt_get(
     struct snck_ctxt const * const
         p_ctxt,
     struct snck_string * const
-        p_out)
+        p_out,
+    char const
+        b_overflow)
 {
     char b_result;
 
-    size_t i_out_len;
-
-    struct snck_string o_value;
-
-    snck_string_init(p_ctxt, &(o_value));
-
-    if (snck_prompt_detect_env(p_ctxt, &(o_value)))
+    if (!b_overflow)
     {
-        i_out_len = snck_prompt_pass1(p_ctxt, &(o_value));
+        size_t i_out_len;
 
-        if (snck_string_resize(p_ctxt, p_out, i_out_len))
+        struct snck_string o_value;
+
+        snck_string_init(p_ctxt, &(o_value));
+
+        if (snck_prompt_detect_env(p_ctxt, &(o_value)))
         {
-            b_result = snck_prompt_pass2(p_ctxt, &(o_value), p_out);
+            i_out_len = snck_prompt_pass1(p_ctxt, &(o_value));
+
+            if (snck_string_resize(p_ctxt, p_out, i_out_len))
+            {
+                b_result = snck_prompt_pass2(p_ctxt, &(o_value), p_out);
+            }
+            else
+            {
+                b_result = 0;
+            }
         }
         else
         {
             b_result = 0;
         }
+
+        snck_string_cleanup(p_ctxt, &(o_value));
     }
     else
     {
-        b_result = 0;
+        b_result = snck_string_ref(p_ctxt, p_out, " > ");
     }
-
-    snck_string_cleanup(p_ctxt, &(o_value));
 
     return b_result;
 

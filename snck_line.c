@@ -680,7 +680,9 @@ snck_line_get(
     FILE * const
         p_file,
     struct snck_string * const
-        p_string)
+        p_string,
+    char const
+        b_overflow)
 {
     char b_result;
 
@@ -690,7 +692,7 @@ snck_line_get(
 
         snck_string_init(p_ctxt, &(o_prompt));
 
-        if (snck_prompt_get(p_ctxt, &(o_prompt)))
+        if (snck_prompt_get(p_ctxt, &(o_prompt), b_overflow))
         {
 
 #if defined(SNCK_FEATURE_LINENOISE)
@@ -731,9 +733,12 @@ snck_line_get(
                     if (errno == EAGAIN)
                     {
                         /* ctrl+c was pressed */
-                        static char const a_newline[] = { '\n' };
+                        b_result = snck_string_copy(p_ctxt, p_string, "");
 
-                        b_result = snck_string_copy_buffer(p_ctxt, p_string, a_newline, sizeof(a_newline));
+                        if (b_result)
+                        {
+                            b_result = 2;
+                        }
                     }
                     else
                     {

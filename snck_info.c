@@ -45,15 +45,15 @@ snck_info_detect_user(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    struct snck_string o_name;
+    static char const a_name_user[] = { 'U', 'S', 'E', 'R' };
 
-    snck_string_init_ref(&(o_name), "USER");
+    static struct snck_string const o_name_user = { (char *)(a_name_user), sizeof(a_name_user), 0u };
 
     b_result = 1;
 
     if (b_result)
     {
-        if (snck_env_get(p_ctxt, &(o_name), &(p_info->o_user)))
+        if (snck_env_get(p_ctxt, &(o_name_user), &(p_info->o_user)))
         {
             b_result = 1;
         }
@@ -74,7 +74,7 @@ snck_info_detect_user(
 
     if (b_result)
     {
-        b_result = snck_env_set(p_ctxt, &(o_name), &(p_info->o_user));
+        b_result = snck_env_set(p_ctxt, &(o_name_user), &(p_info->o_user));
     }
 
     return b_result;
@@ -92,15 +92,15 @@ snck_info_detect_home(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    struct snck_string o_name;
+    static char const a_name_home[] = { 'H', 'O', 'M', 'E' };
 
-    snck_string_init_ref(&(o_name), "HOME");
+    static struct snck_string o_name_home = { (char*)(a_name_home), sizeof(a_name_home), 0u };
 
     b_result = 1;
 
     if (b_result)
     {
-        if (snck_env_get(p_ctxt, &(o_name), &(p_info->o_home)))
+        if (snck_env_get(p_ctxt, &(o_name_home), &(p_info->o_home)))
         {
             b_result = 1;
         }
@@ -126,7 +126,7 @@ snck_info_detect_home(
 
     if (b_result)
     {
-        if (snck_env_set(p_ctxt, &(o_name), &(p_info->o_home)))
+        if (snck_env_set(p_ctxt, &(o_name_home), &(p_info->o_home)))
         {
         }
         else
@@ -150,29 +150,20 @@ snck_info_detect_host(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    char * p_temp;
-
-    p_temp = (char *)(snck_heap_realloc(p_ctxt, NULL, 256u));
-
-    if (p_temp)
+    if (snck_string_resize(p_ctxt, &(p_info->o_host), 256u))
     {
-        p_temp[0u] = '\000';
+        p_info->o_host.p_buf[0u] = '\000';
 
-        if (0 == gethostname(p_temp, 255u))
+        if (0 == gethostname(p_info->o_host.p_buf, 255u))
         {
+            p_info->o_host.i_buf_len = strlen(p_info->o_host.p_buf);
         }
         else
         {
-#if 0
-            fprintf(stderr, "gethostname error\n");
-#endif
-
-            strcpy(p_temp, "snck");
+            snck_string_ref(p_ctxt, &(p_info->o_host), "snck");
         }
 
-        b_result = snck_string_copy(p_ctxt, &(p_info->o_host), p_temp);
-
-        snck_heap_realloc(p_ctxt, (void *)(p_temp), 0u);
+        b_result = 1;
     }
     else
     {
@@ -195,6 +186,8 @@ snck_info_update_wd(
 
     size_t i_max_len;
 
+    char * p_temp;
+
     char b_retry;
 
     b_result = 1;
@@ -203,59 +196,17 @@ snck_info_update_wd(
 
     i_max_len = 128u;
 
+    p_temp = NULL;
+
     while (b_result && b_retry)
     {
-        char * p_temp;
-
-        p_temp = snck_heap_realloc(p_ctxt, NULL, i_max_len);
+        p_temp = snck_heap_realloc(p_ctxt, p_temp, i_max_len);
 
         if (p_temp)
         {
             if (NULL != getcwd(p_temp, i_max_len))
             {
                 b_retry = 0;
-
-                /* Detect if value has changed */
-                if (!p_info->o_pwd.p_buf || (0 != strcmp(p_temp, p_info->o_pwd.p_buf)))
-                {
-                    struct snck_string o_name;
-
-                    struct snck_string o_value;
-
-                    snck_string_init_ref(&(o_name), "PWD");
-
-                    snck_string_init_ref(&(o_value), p_temp);
-
-                    if (snck_env_set(p_ctxt, &(o_name), &(o_value)))
-                    {
-                        if (p_info->o_pwd.p_buf)
-                        {
-                            b_result =
-                                snck_string_copy(
-                                    p_ctxt,
-                                    &(p_info->o_old_pwd),
-                                    p_info->o_pwd.p_buf);
-                        }
-
-                        if (b_result)
-                        {
-                            b_result =
-                                snck_string_copy(
-                                    p_ctxt,
-                                    &(p_info->o_pwd),
-                                    p_temp);
-                        }
-                    }
-                    else
-                    {
-                        b_result = 0;
-                    }
-                }
-                else
-                {
-                    /* Value has not changed */
-                    b_result = 1;
-                }
             }
             else
             {
@@ -270,13 +221,63 @@ snck_info_update_wd(
                     b_result = 0;
                 }
             }
-
-            snck_heap_realloc(p_ctxt, p_temp, 0u);
         }
         else
         {
             b_result = 0;
         }
+    }
+
+    if (b_result)
+    {
+        /* Detect if value has changed */
+        if (!p_info->o_pwd.p_buf || (0 != strcmp(p_temp, p_info->o_pwd.p_buf)))
+        {
+            static char const a_name_pwd[] = { 'P', 'W', 'D' };
+
+            static struct snck_string o_name_pwd = { (char *)(a_name_pwd), sizeof(a_name_pwd), 0u };
+
+            struct snck_string o_value;
+
+            snck_string_init_ref(&(o_value), p_temp);
+
+            if (snck_env_set(p_ctxt, &(o_name_pwd), &(o_value)))
+            {
+                if (p_info->o_pwd.p_buf)
+                {
+                    b_result =
+                        snck_string_copy(
+                            p_ctxt,
+                            &(p_info->o_old_pwd),
+                            p_info->o_pwd.p_buf);
+                }
+
+                if (b_result)
+                {
+                    b_result =
+                        snck_string_copy(
+                            p_ctxt,
+                            &(p_info->o_pwd),
+                            p_temp);
+                }
+            }
+            else
+            {
+                b_result = 0;
+            }
+        }
+        else
+        {
+            /* Value has not changed */
+            b_result = 1;
+        }
+    }
+
+    if (p_temp)
+    {
+        snck_heap_realloc(p_ctxt, p_temp, 0u);
+
+        p_temp = NULL;
     }
 
     return b_result;

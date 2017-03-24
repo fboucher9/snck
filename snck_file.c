@@ -43,6 +43,9 @@ Description:
 /* History */
 #include "snck_history.h"
 
+/* Tokenizer */
+#include "snck_token.h"
+
 static
 int
 snck_find_word_begin(
@@ -770,23 +773,59 @@ snck_file_read(
 
     if (p_file)
     {
+        struct snck_string o_line_accum;
+
+        char b_overflow;
+
+        b_overflow = 0;
+
+        snck_string_init(p_ctxt, &(o_line_accum));
+
         while (b_result && b_continue)
         {
             struct snck_string o_line;
 
+            char b_line_status;
+
             snck_string_init(p_ctxt, &(o_line));
 
-            if (snck_line_get(p_ctxt, p_file, &(o_line)))
+            b_line_status = snck_line_get(p_ctxt, p_file, &(o_line), b_overflow);
+
+            if (1 == b_line_status)
             {
-                if (snck_file_decode_line(p_ctxt, &(o_line)))
+                /* Append to line accumulator */
+                snck_string_append_object(p_ctxt, &(o_line_accum), &(o_line));
+
+                if (snck_token_is_complete(p_ctxt, &(o_line_accum)))
                 {
+                    if (snck_file_decode_line(p_ctxt, &(o_line_accum)))
+                    {
+                    }
+                    else
+                    {
+                        b_result = 0;
+
+                        b_continue = 0;
+                    }
+
+                    snck_string_ref(p_ctxt, &(o_line_accum), "");
+
+                    b_overflow = 0;
                 }
                 else
                 {
-                    b_result = 0;
+                    snck_string_append(p_ctxt, &(o_line_accum), "\n");
 
-                    b_continue = 0;
+                    b_overflow = 1;
                 }
+            }
+            else if (2 == b_line_status)
+            {
+                snck_string_ref(p_ctxt, &(o_line_accum), "");
+
+                b_overflow = 0;
+
+                b_continue = 1;
             }
             else
             {

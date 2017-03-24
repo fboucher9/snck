@@ -52,6 +52,8 @@ snck_line_get(
     FILE * const
         p_file,
     struct snck_string * const
-        p_string);
+        p_string,
+    char const
+        b_overflow);
 
 /* end-of-file: snck_line.h */
