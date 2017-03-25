@@ -47,6 +47,9 @@ Description:
 /* File */
 #include "snck_file.h"
 
+/* Options */
+#include "snck_opts.h"
+
 struct snck_main_ctxt
 {
     struct snck_ctxt o_ctxt;
@@ -60,6 +63,8 @@ struct snck_main_ctxt
     struct snck_line o_line;
 
     struct snck_history o_history;
+
+    struct snck_opts o_opts;
 
 }; /* struct snck_main_ctxt */
 
@@ -124,7 +129,11 @@ static
 char
 snck_main_init(
     struct snck_main_ctxt * const
-        p_main)
+        p_main,
+    unsigned int const
+        i_argc,
+    char * * const
+        p_argv)
 {
     char b_result;
 
@@ -142,6 +151,8 @@ snck_main_init(
 
     p_ctxt->p_history = &(p_main->o_history);
 
+    p_ctxt->p_opts = &(p_main->o_opts);
+
     if (snck_heap_init(p_ctxt))
     {
         snck_passwd_init(p_ctxt);
@@ -155,6 +166,8 @@ snck_main_init(
             snck_line_init(p_ctxt);
 
             snck_history_init(p_ctxt);
+
+            snck_opts_init(p_ctxt, i_argc, p_argv);
 
             b_result = 1;
         }
@@ -197,6 +210,26 @@ snck_main_cleanup(
     snck_heap_cleanup(p_ctxt);
 }
 
+static
+void
+snck_main_login(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    struct snck_string o_login_script;
+
+    snck_string_init(p_ctxt, &(o_login_script));
+
+    snck_string_copy_object(p_ctxt, &(o_login_script), &(p_ctxt->p_info->o_home));
+
+    snck_string_append(p_ctxt, &(o_login_script), "/.snckrc");
+
+    snck_file_read(p_ctxt, o_login_script.p_buf);
+
+    snck_string_cleanup(p_ctxt, &(o_login_script));
+
+} /* snck_main_login() */
+
 /*
 
 Function: snck_main
@@ -212,25 +245,40 @@ snck_main(
     /* read commands from stdin */
     int i_exit_status;
 
-    if (i_argc > 1)
+    struct snck_main_ctxt * const p_main =
+        &(o_main_ctxt);
+
+    if (snck_main_init(p_main, i_argc, p_argv))
     {
-        p_argv[0u] = "/bin/sh";
+        struct snck_ctxt const * const p_ctxt =
+            &(p_main->o_ctxt);
 
-        execvp(p_argv[0u], p_argv);
+        struct snck_opts const * const p_opts =
+            p_ctxt->p_opts;
 
-        i_exit_status = 1;
-    }
-    else
-    {
-        struct snck_main_ctxt * const p_main =
-            &(o_main_ctxt);
-
-        if (snck_main_init(p_main))
+        if (p_opts->b_login)
         {
-            struct snck_ctxt const * const p_ctxt =
-                &(p_main->o_ctxt);
+            snck_main_login(p_ctxt);
+        }
 
-            if (snck_file_read(p_ctxt, NULL))
+        if (p_opts->b_command)
+        {
+            p_argv[0u] = "/bin/sh";
+
+            execvp(p_argv[0u], p_argv);
+
+            i_exit_status = 1;
+        }
+        else
+        {
+            char const * p_script = NULL;
+
+            if (!p_opts->b_input && p_opts->i_argc)
+            {
+                p_script = p_opts->p_argv[0u];
+            }
+
+            if (snck_file_read(p_ctxt, p_script))
             {
                 i_exit_status = 0;
             }
@@ -238,13 +286,13 @@ snck_main(
             {
                 i_exit_status = 1;
             }
+        }
 
-            snck_main_cleanup(p_main);
-        }
-        else
-        {
-            i_exit_status = 1;
-        }
+        snck_main_cleanup(p_main);
+    }
+    else
+    {
+        i_exit_status = 1;
     }
 
     return i_exit_status;

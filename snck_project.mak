@@ -25,6 +25,7 @@ SNCK_SRCS = \
     $(SNCK_SRC_PATH)/snck_env.c \
     $(SNCK_SRC_PATH)/snck_file.c \
     $(SNCK_SRC_PATH)/snck_token.c \
+    $(SNCK_SRC_PATH)/snck_opts.c \
     $(SNCK_SRC_PATH)/snck_os.c
 
 SNCK_LIBS =

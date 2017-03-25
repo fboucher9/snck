@@ -28,6 +28,8 @@ struct snck_line;
 
 struct snck_history;
 
+struct snck_opts;
+
 /*
 
 Structure: snck_ctxt
@@ -48,6 +50,8 @@ struct snck_ctxt
     struct snck_line * p_line;
 
     struct snck_history * p_history;
+
+    struct snck_opts * p_opts;
 
 }; /* struct snck_ctxt */
 
