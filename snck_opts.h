@@ -30,18 +30,15 @@ Description:
 
 Comments:
 
-    -i  interactive
-    -I  ignore eof
     -l  login
-    -n  dry run
-    -x  trace
-    -v  verbose
     -c  command
     -s  stdin
 
 */
 struct snck_opts
 {
+    char const * p_script;
+
     char * * p_argv;
 
     unsigned int i_argc;

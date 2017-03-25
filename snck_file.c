@@ -46,6 +46,9 @@ Description:
 /* Tokenizer */
 #include "snck_token.h"
 
+/* Options */
+#include "snck_opts.h"
+
 static
 int
 snck_find_word_begin(
@@ -447,7 +450,9 @@ snck_file_exec_line(
 
     char * a_split = NULL;
 
-    char * l_argv[4u];
+    char * l_argv[32u];
+
+    unsigned int i;
 
     (void)(p_ctxt);
 
@@ -455,32 +460,19 @@ snck_file_exec_line(
 
     l_argv[1u] = "-c";
 
-#if 0
-    /* detect if exec is possible */
-    if (strchr(p_line->p_buf, ';') ||
-        strchr(p_line->p_buf, '&') ||
-        strchr(p_line->p_buf, '|'))
-#endif
-    {
-        l_argv[2u] = (char *)(p_line->p_buf);
-    }
-#if 0
-    else
-    {
-        static char const a_fmt[] = "exec %s";
+    l_argv[2u] = (char *)(p_line->p_buf);
 
-        a_split = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + p_line->i_buf_len + 1);
+    l_argv[3u] = "sh";
 
-        if (a_split)
+    for (i=0u; i<p_ctxt->p_opts->i_argc; i++)
+    {
+        if (4u + i < 32u)
         {
-            sprintf(a_split, a_fmt, p_line->p_buf);
+            l_argv[4u+i] = p_ctxt->p_opts->p_argv[i];
         }
-
-        l_argv[2u] = a_split;
     }
-#endif
 
-    l_argv[3u] = NULL;
+    l_argv[4u+p_ctxt->p_opts->i_argc] = NULL;
 
     /* execute the command */
     iChildProcess = fork();

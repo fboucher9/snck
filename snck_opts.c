@@ -22,6 +22,22 @@ Description:
 /* Module */
 #include "snck_opts.h"
 
+/*
+
+Function: snck_opts_init
+
+Description:
+
+    Initialize module using array of command-line options.
+
+Comments:
+
+    .   Detect login shell when process name begins with dash
+
+    .   When option begins with dash, option is set.  If option begins with
+        a plus, option is reset.
+
+*/
 char
 snck_opts_init(
     struct snck_ctxt const * const
@@ -37,7 +53,17 @@ snck_opts_init(
 
     unsigned int i;
 
-    memset(p_opts, 0x00u, sizeof(p_opts));
+    p_opts->p_script = NULL;
+
+    p_opts->p_argv = NULL;
+
+    p_opts->i_argc = 0u;
+
+    p_opts->b_login = 0;
+
+    p_opts->b_command = 0;
+
+    p_opts->b_input = 0;
 
     if ('-' == p_argv[0u][0u])
     {
@@ -65,11 +91,44 @@ snck_opts_init(
 
             i ++;
         }
+        else if ('+' == p_argv[i][0u])
+        {
+            if ('c' == p_argv[i][1u])
+            {
+                p_opts->b_command = 0;
+            }
+            else if ('l' == p_argv[i][1u])
+            {
+                p_opts->b_login = 0;
+            }
+            else if ('s' == p_argv[i][1u])
+            {
+                p_opts->b_input = 0;
+            }
+
+            i ++;
+        }
         else
         {
-            p_opts->p_argv = p_argv + i;
+            if (!p_opts->b_input)
+            {
+                p_opts->p_script = p_argv[i];
 
-            p_opts->i_argc = (unsigned int)(i_argc - i);
+                i ++;
+
+                if (i < i_argc)
+                {
+                    p_opts->p_argv = p_argv + i;
+
+                    p_opts->i_argc = (unsigned int)(i_argc - i);
+                }
+            }
+            else
+            {
+                p_opts->p_argv = p_argv + i;
+
+                p_opts->i_argc = (unsigned int)(i_argc - i);
+            }
 
             break;
         }
@@ -81,6 +140,15 @@ snck_opts_init(
 
 } /* snck_opts_init() */
 
+/*
+
+Function: snck_opts_cleanup
+
+Description:
+
+    Free resources allocated by snck_opts_init().
+
+*/
 void
 snck_opts_cleanup(
     struct snck_ctxt const * const

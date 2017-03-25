@@ -271,14 +271,7 @@ snck_main(
         }
         else
         {
-            char const * p_script = NULL;
-
-            if (!p_opts->b_input && p_opts->i_argc)
-            {
-                p_script = p_opts->p_argv[0u];
-            }
-
-            if (snck_file_read(p_ctxt, p_script))
+            if (snck_file_read(p_ctxt, p_opts->p_script))
             {
                 i_exit_status = 0;
             }
