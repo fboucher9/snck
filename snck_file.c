@@ -452,27 +452,55 @@ snck_file_exec_line(
 
     char * l_argv[32u];
 
+    unsigned int l_argc;
+
     unsigned int i;
 
     (void)(p_ctxt);
 
-    l_argv[0u] = "/bin/sh";
+    l_argc = 0;
 
-    l_argv[1u] = "-c";
+    l_argv[l_argc] = "/bin/sh";
 
-    l_argv[2u] = (char *)(p_line->p_buf);
+    l_argc ++;
 
-    l_argv[3u] = "sh";
+    l_argv[l_argc] = "-c";
+
+    l_argc ++;
+
+    if (p_ctxt->p_opts->b_trace)
+    {
+        l_argv[l_argc] = "-x";
+
+        l_argc ++;
+    }
+
+    l_argv[l_argc] = (char *)(p_line->p_buf);
+
+    l_argc ++;
+
+    l_argv[l_argc] = "sh";
+
+    l_argc ++;
 
     for (i=0u; i<p_ctxt->p_opts->i_argc; i++)
     {
-        if (4u + i < 32u)
+        if (l_argc < 32u)
         {
-            l_argv[4u+i] = p_ctxt->p_opts->p_argv[i];
+            l_argv[l_argc] = p_ctxt->p_opts->p_argv[i];
+
+            l_argc ++;
         }
     }
 
-    l_argv[4u+p_ctxt->p_opts->i_argc] = NULL;
+    l_argv[l_argc] = NULL;
+
+    l_argc ++;
+
+    if (p_ctxt->p_opts->b_trace)
+    {
+        fprintf(stderr, "snck: exec sh -c [%s]\n", p_line->p_buf);
+    }
 
     /* execute the command */
     iChildProcess = fork();

@@ -49,6 +49,8 @@ struct snck_opts
 
     char b_input;
 
+    char b_trace;
+
 }; /* struct snck_opts */
 
 char

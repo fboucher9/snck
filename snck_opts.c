@@ -65,6 +65,8 @@ snck_opts_init(
 
     p_opts->b_input = 0;
 
+    p_opts->b_trace = 0;
+
     if ('-' == p_argv[0u][0u])
     {
         p_opts->b_login = 1;
@@ -88,6 +90,10 @@ snck_opts_init(
             {
                 p_opts->b_input = 1;
             }
+            else if ('x' == p_argv[i][1u])
+            {
+                p_opts->b_trace = 1;
+            }
 
             i ++;
         }
@@ -104,6 +110,10 @@ snck_opts_init(
             else if ('s' == p_argv[i][1u])
             {
                 p_opts->b_input = 0;
+            }
+            else if ('x' == p_argv[i][1u])
+            {
+                p_opts->b_trace = 0;
             }
 
             i ++;
