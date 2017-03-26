@@ -51,6 +51,8 @@ struct snck_opts
 
     char b_trace;
 
+    char b_interact;
+
 }; /* struct snck_opts */
 
 char

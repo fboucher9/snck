@@ -48,6 +48,9 @@ Description:
 /* Environment */
 #include "snck_env.h"
 
+/* Options */
+#include "snck_opts.h"
+
 /* Sorted list of strings */
 /* Sort by alphatical order */
 /* Sort by fuzzy order */
@@ -844,7 +847,7 @@ snck_line_get(
 {
     char b_result;
 
-    if (stdin == p_file)
+    if (p_ctxt->p_opts->b_interact)
     {
         struct snck_string o_prompt;
 
@@ -948,6 +951,13 @@ snck_line_get(
             if (NULL != fgets(p_string->p_buf, p_string->i_alloc_len, p_file))
             {
                 p_string->i_buf_len = strlen(p_string->p_buf);
+
+                if ('\n' == p_string->p_buf[p_string->i_buf_len - 1])
+                {
+                    p_string->p_buf[p_string->i_buf_len - 1] = '\000';
+
+                    p_string->i_buf_len --;
+                }
 
                 b_result = 1;
             }

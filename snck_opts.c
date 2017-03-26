@@ -67,6 +67,8 @@ snck_opts_init(
 
     p_opts->b_trace = 0;
 
+    p_opts->b_interact = -1;
+
     if ('-' == p_argv[0u][0u])
     {
         p_opts->b_login = 1;
@@ -94,6 +96,10 @@ snck_opts_init(
             {
                 p_opts->b_trace = 1;
             }
+            else if ('i' == p_argv[i][1u])
+            {
+                p_opts->b_interact = 1;
+            }
 
             i ++;
         }
@@ -114,6 +120,10 @@ snck_opts_init(
             else if ('x' == p_argv[i][1u])
             {
                 p_opts->b_trace = 0;
+            }
+            else if ('i' == p_argv[i][1u])
+            {
+                p_opts->b_interact = 0;
             }
 
             i ++;
@@ -141,6 +151,30 @@ snck_opts_init(
             }
 
             break;
+        }
+    }
+
+    /* Determine if we are in interactive mode */
+    if (p_opts->b_interact < 0)
+    {
+        if (p_opts->b_command)
+        {
+            p_opts->b_interact = 0;
+        }
+        else if (p_opts->p_script)
+        {
+            p_opts->b_interact = 0;
+        }
+        else
+        {
+            if (isatty(0))
+            {
+                p_opts->b_interact = 1;
+            }
+            else
+            {
+                p_opts->b_interact = 0;
+            }
         }
     }
 
