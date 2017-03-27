@@ -655,74 +655,104 @@ snck_completion(
             if (snck_env_get(p_ctxt, &(o_name_path), &(o_value_path)))
             {
                 /* split of buffer */
-                char * p_comp;
+                size_t i_path_it;
 
-                p_comp = strtok(o_value_path.p_buf, ":");
+                i_path_it = 0;
 
-                while (p_comp)
+                while (i_path_it < o_value_path.i_buf_len)
                 {
-                    /* enumerate executables in path */
-                    DIR * p_dir_object;
+                    size_t i_comp_start;
 
-                    p_dir_object = opendir(p_comp);
+                    size_t i_comp_len;
 
-                    if (p_dir_object)
+                    i_comp_start = i_path_it;
+
+                    i_comp_len = 0;
+
+                    while ((i_path_it < o_value_path.i_buf_len)
+                        && (':' != o_value_path.p_buf[i_path_it]))
                     {
-                        struct dirent * p_dir_entry;
+                        i_comp_len ++;
 
-                        p_dir_entry = readdir(p_dir_object);
-
-                        while (p_dir_entry)
-                        {
-                            if (DT_DIR != p_dir_entry->d_type)
-                            {
-                                int i_score;
-
-                                i_score = snck_fuzzy_compare(p_dir_entry->d_name, buf + pos1, pos - pos1);
-
-                                if (0 != i_score)
-                                {
-                                    struct snck_suggest_node * p_suggest_node;
-
-                                    p_suggest_node = snck_suggest_node_create(p_ctxt);
-
-                                    if (p_suggest_node)
-                                    {
-                                        char b_consumed;
-
-                                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(p_dir_entry->d_name) + 16u + 1u))
-                                        {
-                                            if (pos1 > 0)
-                                            {
-                                                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s", (unsigned int)(i_score), (unsigned int)(0u), (int)(pos1), buf, p_dir_entry->d_name);
-                                            }
-                                            else
-                                            {
-                                                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s", (unsigned int)(i_score), (unsigned int)(0u), p_dir_entry->d_name);
-                                            }
-
-                                            b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
-                                        }
-                                        else
-                                        {
-                                            b_consumed = 0;
-                                        }
-
-                                        if (!b_consumed)
-                                        {
-                                            snck_suggest_node_destroy(p_ctxt, p_suggest_node);
-                                        }
-                                    }
-                                }
-                            }
-
-                            p_dir_entry = readdir(p_dir_object);
-                        }
-
-                        closedir(p_dir_object);
+                        i_path_it ++;
                     }
 
-                    p_comp = strtok(NULL, ":");
+                    if (i_comp_len)
+                    {
+                        struct snck_string o_comp;
+
+                        snck_string_init(p_ctxt, &(o_comp));
+
+                        snck_string_copy_buffer(p_ctxt, &(o_comp), o_value_path.p_buf + i_comp_start, i_comp_len);
+
+                        /* enumerate executables in path */
+                        {
+                            DIR * p_dir_object;
+
+                            p_dir_object = opendir(o_comp.p_buf);
+
+                            if (p_dir_object)
+                            {
+                                struct dirent * p_dir_entry;
+
+                                p_dir_entry = readdir(p_dir_object);
+
+                                while (p_dir_entry)
+                                {
+                                    if (DT_DIR != p_dir_entry->d_type)
+                                    {
+                                        int i_score;
+
+                                        i_score = snck_fuzzy_compare(p_dir_entry->d_name, buf + pos1, pos - pos1);
+
+                                        if (0 != i_score)
+                                        {
+                                            struct snck_suggest_node * p_suggest_node;
+
+                                            p_suggest_node = snck_suggest_node_create(p_ctxt);
+
+                                            if (p_suggest_node)
+                                            {
+                                                char b_consumed;
+
+                                                if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(p_dir_entry->d_name) + 16u + 1u))
+                                                {
+                                                    if (pos1 > 0)
+                                                    {
+                                                        sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s", (unsigned int)(i_score), (unsigned int)(0u), (int)(pos1), buf, p_dir_entry->d_name);
+                                                    }
+                                                    else
+                                                    {
+                                                        sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s", (unsigned int)(i_score), (unsigned int)(0u), p_dir_entry->d_name);
+                                                    }
+
+                                                    b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
+                                                }
+                                                else
+                                                {
+                                                    b_consumed = 0;
+                                                }
+
+                                                if (!b_consumed)
+                                                {
+                                                    snck_suggest_node_destroy(p_ctxt, p_suggest_node);
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    p_dir_entry = readdir(p_dir_object);
+                                }
+
+                                closedir(p_dir_object);
+                            }
+                        }
+
+                        snck_string_cleanup(p_ctxt, &(o_comp));
+                    }
+
+                    /* Skip the colon separator */
+                    i_path_it ++;
                 }
             }
 
