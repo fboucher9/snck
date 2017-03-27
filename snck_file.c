@@ -448,8 +448,6 @@ snck_file_exec_line(
 
     pid_t iChildProcess;
 
-    char * a_split = NULL;
-
     char * l_argv[32u];
 
     unsigned int l_argc;
@@ -502,48 +500,50 @@ snck_file_exec_line(
         fprintf(stderr, "snck: exec sh -c [%s]\n", p_line->p_buf);
     }
 
-    /* execute the command */
-    iChildProcess = fork();
-    if (0 == iChildProcess)
+    if (p_ctxt->p_opts->b_dryrun)
     {
-        /* first child writes into output */
-        signal(SIGINT, SIG_DFL);
-        /* signal(SIGTSTP, SIG_DFL); */
-        signal(SIGCHLD, SIG_DFL);
-        execvp(l_argv[0u], l_argv);
-        fprintf(stderr, "snck: execvp failure!\n");
-
-        b_result = 0;
-    }
-    else
-    {
-        /* wait for task to finish executing... */
-        int resultStatus;
-        do
-        {
-            waitpid(iChildProcess, &resultStatus, WUNTRACED);
-        }
-        while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
-
-        {
-            int iExitCode;
-
-            iExitCode = WEXITSTATUS(resultStatus);
-
-            if (iExitCode)
-            {
-                fprintf(stderr, "snck: error code is %d\n", iExitCode);
-            }
-        }
+        fprintf(stderr, "snck: skip exec for dry run\n");
 
         b_result = 1;
     }
-
-    if (a_split)
+    else
     {
-        snck_heap_realloc(p_ctxt, a_split, 0u);
+        /* execute the command */
+        iChildProcess = fork();
+        if (0 == iChildProcess)
+        {
+            /* first child writes into output */
+            signal(SIGINT, SIG_DFL);
+            /* signal(SIGTSTP, SIG_DFL); */
+            signal(SIGCHLD, SIG_DFL);
+            execvp(l_argv[0u], l_argv);
+            fprintf(stderr, "snck: execvp failure!\n");
 
-        a_split = NULL;
+            b_result = 0;
+        }
+        else
+        {
+            /* wait for task to finish executing... */
+            int resultStatus;
+            do
+            {
+                waitpid(iChildProcess, &resultStatus, WUNTRACED);
+            }
+            while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
+
+            {
+                int iExitCode;
+
+                iExitCode = WEXITSTATUS(resultStatus);
+
+                if (iExitCode)
+                {
+                    fprintf(stderr, "snck: error code is %d\n", iExitCode);
+                }
+            }
+
+            b_result = 1;
+        }
     }
 
     return b_result;

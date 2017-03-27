@@ -53,6 +53,8 @@ struct snck_opts
 
     char b_interact;
 
+    char b_dryrun;
+
 }; /* struct snck_opts */
 
 char

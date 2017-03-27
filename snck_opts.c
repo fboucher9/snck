@@ -69,6 +69,8 @@ snck_opts_init(
 
     p_opts->b_interact = -1;
 
+    p_opts->b_dryrun = 0;
+
     if ('-' == p_argv[0u][0u])
     {
         p_opts->b_login = 1;
@@ -78,52 +80,34 @@ snck_opts_init(
 
     while (i < i_argc)
     {
-        if ('-' == p_argv[i][0u])
+        if (('-' == p_argv[i][0u])
+            || ('+' == p_argv[i][0u]))
         {
-            if ('c' == p_argv[i][1u])
-            {
-                p_opts->b_command = 1;
-            }
-            else if ('l' == p_argv[i][1u])
-            {
-                p_opts->b_login = 1;
-            }
-            else if ('s' == p_argv[i][1u])
-            {
-                p_opts->b_input = 1;
-            }
-            else if ('x' == p_argv[i][1u])
-            {
-                p_opts->b_trace = 1;
-            }
-            else if ('i' == p_argv[i][1u])
-            {
-                p_opts->b_interact = 1;
-            }
+            char b = ('-' == p_argv[i][0u]);
 
-            i ++;
-        }
-        else if ('+' == p_argv[i][0u])
-        {
             if ('c' == p_argv[i][1u])
             {
-                p_opts->b_command = 0;
+                p_opts->b_command = b;
             }
             else if ('l' == p_argv[i][1u])
             {
-                p_opts->b_login = 0;
+                p_opts->b_login = b;
             }
             else if ('s' == p_argv[i][1u])
             {
-                p_opts->b_input = 0;
+                p_opts->b_input = b;
             }
             else if ('x' == p_argv[i][1u])
             {
-                p_opts->b_trace = 0;
+                p_opts->b_trace = b;
             }
             else if ('i' == p_argv[i][1u])
             {
-                p_opts->b_interact = 0;
+                p_opts->b_interact = b;
+            }
+            else if ('n' == p_argv[i][1u])
+            {
+                p_opts->b_dryrun = b;
             }
 
             i ++;
@@ -135,22 +119,16 @@ snck_opts_init(
                 p_opts->p_script = p_argv[i];
 
                 i ++;
-
-                if (i < i_argc)
-                {
-                    p_opts->p_argv = p_argv + i;
-
-                    p_opts->i_argc = (unsigned int)(i_argc - i);
-                }
             }
-            else
+
+            if (i < i_argc)
             {
                 p_opts->p_argv = p_argv + i;
 
                 p_opts->i_argc = (unsigned int)(i_argc - i);
-            }
 
-            break;
+                i = i_argc;
+            }
         }
     }
 
