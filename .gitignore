@@ -1,4 +1,6 @@
 snck
 *.exe
 *.sh
+_obj_*
+*.gch
 tags

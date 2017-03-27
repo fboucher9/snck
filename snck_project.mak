@@ -13,24 +13,24 @@ SNCK_CC = $(CC)
 endif
 
 SNCK_SRCS = \
-    $(SNCK_SRC_PATH)/snck_main.c \
-    $(SNCK_SRC_PATH)/snck_info.c \
-    $(SNCK_SRC_PATH)/snck_string.c \
-    $(SNCK_SRC_PATH)/snck_heap.c \
-    $(SNCK_SRC_PATH)/snck_passwd.c \
-    $(SNCK_SRC_PATH)/snck_line.c \
-    $(SNCK_SRC_PATH)/snck_prompt.c \
-    $(SNCK_SRC_PATH)/snck_list.c \
-    $(SNCK_SRC_PATH)/snck_history.c \
-    $(SNCK_SRC_PATH)/snck_env.c \
-    $(SNCK_SRC_PATH)/snck_file.c \
-    $(SNCK_SRC_PATH)/snck_token.c \
-    $(SNCK_SRC_PATH)/snck_opts.c \
-    $(SNCK_SRC_PATH)/snck_os.c
+    $(SNCK_SRC_PATH)/_obj_snck_main.o \
+    $(SNCK_SRC_PATH)/_obj_snck_info.o \
+    $(SNCK_SRC_PATH)/_obj_snck_string.o \
+    $(SNCK_SRC_PATH)/_obj_snck_heap.o \
+    $(SNCK_SRC_PATH)/_obj_snck_passwd.o \
+    $(SNCK_SRC_PATH)/_obj_snck_line.o \
+    $(SNCK_SRC_PATH)/_obj_snck_prompt.o \
+    $(SNCK_SRC_PATH)/_obj_snck_list.o \
+    $(SNCK_SRC_PATH)/_obj_snck_history.o \
+    $(SNCK_SRC_PATH)/_obj_snck_env.o \
+    $(SNCK_SRC_PATH)/_obj_snck_file.o \
+    $(SNCK_SRC_PATH)/_obj_snck_token.o \
+    $(SNCK_SRC_PATH)/_obj_snck_opts.o \
+    $(SNCK_SRC_PATH)/_obj_snck_os.o
 
 SNCK_LIBS =
 
-SNCK_CFLAGS = -Wall -Wextra -pedantic
+SNCK_CFLAGS = -Wall -Wextra -pedantic -I$(SNCK_DST_PATH)
 
 ifdef SNCK_DBG
 SNCK_CFLAGS += -g -O0
@@ -45,8 +45,26 @@ SNCK_LIBS += -llinenoise
 all : $(SNCK_DST_PATH)/snck
 
 $(SNCK_DST_PATH)/snck : $(SNCK_SRCS)
-	$(SNCK_CC) -o $@ $(SNCK_CFLAGS) $(SNCK_SRCS) $(SNCK_LIBS)
+	@echo linking $@
+	@echo -o $@ $(SNCK_CFLAGS) $(SNCK_SRCS) $(SNCK_LIBS) > $(SNCK_DST_PATH)/_obj_snck.cmd
+	$(SNCK_CC) @$(SNCK_DST_PATH)/_obj_snck.cmd
+
+# Build each object file
+$(SNCK_DST_PATH)/_obj_%.o : $(SNCK_SRC_PATH)/%.c
+	@echo compiling $@
+	@echo -c -o $@ $(SNCK_CFLAGS) -MT $@ -MMD -MP -MF $@.d $< > $@.cmd
+	@$(SNCK_CC) @$@.cmd
+
+# Build the precompiled header
+$(SNCK_DST_PATH)/snck_os.h.gch : $(SNCK_SRC_PATH)/snck_os.h
+	@echo generating $@
+	@$(SNCK_CC) -c -o $@ $(SNCK_CFLAGS) $(SNCK_SRC_PATH)/snck_os.h
 
 .PHONY : clean
 clean:
-	-rm $(SNCK_DST_PATH)/snck
+	@echo cleanup
+	@rm -f $(SNCK_DST_PATH)/snck
+	@rm -f $(SNCK_DST_PATH)/_obj_*
+	@rm -f $(SNCK_DST_PATH)/*.gch
+
+-include $(SNCK_DST_PATH)/_obj_*.o.d
