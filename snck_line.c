@@ -877,7 +877,7 @@ snck_line_get(
 {
     char b_result;
 
-    if (p_ctxt->p_opts->b_interact)
+    if ((stdin == p_file) && (p_ctxt->p_opts->b_interact))
     {
         struct snck_string o_prompt;
 

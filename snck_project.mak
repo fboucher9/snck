@@ -47,7 +47,7 @@ all : $(SNCK_DST_PATH)/snck
 $(SNCK_DST_PATH)/snck : $(SNCK_SRCS)
 	@echo linking $@
 	@echo -o $@ $(SNCK_CFLAGS) $(SNCK_SRCS) $(SNCK_LIBS) > $(SNCK_DST_PATH)/_obj_snck.cmd
-	$(SNCK_CC) @$(SNCK_DST_PATH)/_obj_snck.cmd
+	@$(SNCK_CC) @$(SNCK_DST_PATH)/_obj_snck.cmd
 
 # Build each object file
 $(SNCK_DST_PATH)/_obj_%.o : $(SNCK_SRC_PATH)/%.c
@@ -56,6 +56,9 @@ $(SNCK_DST_PATH)/_obj_%.o : $(SNCK_SRC_PATH)/%.c
 	@$(SNCK_CC) @$@.cmd
 
 # Build the precompiled header
+$(SNCK_DST_PATH)/snck : $(SNCK_DST_PATH)/snck_os.h.gch
+$(SNCK_SRCS) : $(SNCK_DST_PATH)/snck_os.h.gch
+
 $(SNCK_DST_PATH)/snck_os.h.gch : $(SNCK_SRC_PATH)/snck_os.h
 	@echo generating $@
 	@$(SNCK_CC) -c -o $@ $(SNCK_CFLAGS) $(SNCK_SRC_PATH)/snck_os.h

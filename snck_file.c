@@ -117,7 +117,7 @@ snck_expand_get(
     char const * p_ref)
 {
     /* Use sh -c 'echo ...' to expand the argument */
-    static char const a_fmt[] = "sh -c \'echo -n %s\'";
+    static char const a_fmt[] = "echo -n %s";
 
     char * p_buf;
 
