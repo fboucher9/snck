@@ -117,7 +117,7 @@ snck_expand_get(
     char const * p_ref)
 {
     /* Use sh -c 'echo ...' to expand the argument */
-    static char const a_fmt[] = "echo -n %s";
+    static char const a_fmt[] = "PATH= echo -n %s";
 
     char * p_buf;
 
@@ -440,21 +440,70 @@ snck_builtin_shell(
 
 static
 char
+snck_wrap_exec(
+    struct snck_ctxt const * const p_ctxt,
+    char * * l_argv)
+{
+    char b_result;
+
+    pid_t iChildProcess;
+
+    (void)(p_ctxt);
+
+    /* execute the command */
+    iChildProcess = fork();
+    if (0 == iChildProcess)
+    {
+        /* first child writes into output */
+        signal(SIGINT, SIG_DFL);
+        /* signal(SIGTSTP, SIG_DFL); */
+        signal(SIGCHLD, SIG_DFL);
+        execvp(l_argv[0u], l_argv);
+        fprintf(stderr, "snck: execvp failure!\n");
+
+        b_result = 0;
+    }
+    else
+    {
+        /* wait for task to finish executing... */
+        int resultStatus;
+        do
+        {
+            waitpid(iChildProcess, &resultStatus, WUNTRACED);
+        }
+        while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
+
+        {
+            int iExitCode;
+
+            iExitCode = WEXITSTATUS(resultStatus);
+
+            if (iExitCode)
+            {
+                fprintf(stderr, "snck: error code is %d\n", iExitCode);
+            }
+        }
+
+        b_result = 1;
+    }
+
+    return b_result;
+
+}
+
+static
+char
 snck_file_exec_line(
     struct snck_ctxt const * const p_ctxt,
     struct snck_string const * const p_line)
 {
     char b_result;
 
-    pid_t iChildProcess;
-
     char * l_argv[32u];
 
     unsigned int l_argc;
 
     unsigned int i;
-
-    (void)(p_ctxt);
 
     l_argc = 0;
 
@@ -508,42 +557,7 @@ snck_file_exec_line(
     }
     else
     {
-        /* execute the command */
-        iChildProcess = fork();
-        if (0 == iChildProcess)
-        {
-            /* first child writes into output */
-            signal(SIGINT, SIG_DFL);
-            /* signal(SIGTSTP, SIG_DFL); */
-            signal(SIGCHLD, SIG_DFL);
-            execvp(l_argv[0u], l_argv);
-            fprintf(stderr, "snck: execvp failure!\n");
-
-            b_result = 0;
-        }
-        else
-        {
-            /* wait for task to finish executing... */
-            int resultStatus;
-            do
-            {
-                waitpid(iChildProcess, &resultStatus, WUNTRACED);
-            }
-            while (!WIFEXITED(resultStatus) && !WIFSIGNALED(resultStatus));
-
-            {
-                int iExitCode;
-
-                iExitCode = WEXITSTATUS(resultStatus);
-
-                if (iExitCode)
-                {
-                    fprintf(stderr, "snck: error code is %d\n", iExitCode);
-                }
-            }
-
-            b_result = 1;
-        }
+        b_result = snck_wrap_exec(p_ctxt, l_argv);
     }
 
     return b_result;
@@ -659,6 +673,49 @@ snck_builtin_exit(
 
 static
 char
+snck_builtin_edit(
+    struct snck_ctxt const * const p_ctxt,
+    struct snck_string const * const p_line)
+{
+    char b_result;
+
+    char * l_argv[3u];
+
+    struct snck_string o_value_editor;
+
+    static char const a_name_editor[] = { 'E', 'D', 'I', 'T', 'O', 'R' };
+
+    static struct snck_string o_name_editor = { (char *)(a_name_editor), sizeof(a_name_editor), 0u };
+
+    char const * p_editor;
+
+    snck_string_init(p_ctxt, &(o_value_editor));
+
+    if (snck_env_get(p_ctxt, &(o_name_editor), &(o_value_editor)))
+    {
+        p_editor = o_value_editor.p_buf;
+    }
+    else
+    {
+        p_editor = "vi";
+    }
+
+    l_argv[0u] = (char *)(p_editor);
+
+    l_argv[1u] = (char *)(p_line->p_buf);
+
+    l_argv[2u] = NULL;
+
+    /* execute the command */
+    b_result = snck_wrap_exec(p_ctxt, l_argv);
+
+    snck_string_cleanup(p_ctxt, &(o_value_editor));
+
+    return b_result;
+}
+
+static
+char
 snck_file_decode_line(
     struct snck_ctxt const * const p_ctxt,
     struct snck_string const * const p_line)
@@ -748,7 +805,108 @@ snck_file_decode_line(
         }
         else
         {
-            b_result = snck_file_exec_line(p_ctxt, p_line);
+            /* Use which to detect executable */
+            /* Detect if cmd is a directory */
+            /* Detect if cmd is a text file */
+            struct stat o_stat_info;
+
+            int i_stat_result;
+
+            struct snck_string o_cmd_sz;
+
+            char const * p_cmd_expanded;
+
+            snck_string_init(p_ctxt, &(o_cmd_sz));
+
+            snck_string_copy_object(p_ctxt, &(o_cmd_sz), &(o_cmd));
+
+            p_cmd_expanded = snck_expand_get(p_ctxt, o_cmd_sz.p_buf);
+
+            b_result = 1;
+
+            if (p_cmd_expanded)
+            {
+                char b_cmd_type;
+
+                struct snck_string o_cmd_expanded;
+
+                snck_string_init_ref(&(o_cmd_expanded), p_cmd_expanded);
+
+                b_cmd_type = 0;
+
+                i_stat_result = stat(p_cmd_expanded, &(o_stat_info));
+
+                if (0 == i_stat_result)
+                {
+                    if (S_ISDIR(o_stat_info.st_mode))
+                    {
+                        b_cmd_type = 1;
+                    }
+                    else if (S_ISREG(o_stat_info.st_mode))
+                    {
+                        if ((S_IXUSR|S_IXGRP|S_IXOTH) & o_stat_info.st_mode)
+                        {
+                            /* Executable */
+                        }
+                        else if ((S_IRUSR|S_IRGRP|S_IROTH) & o_stat_info.st_mode)
+                        {
+                            /* Detect file name extension */
+
+                            /* Special case for jpg */
+
+                            /* Launch editor */
+                            if (o_stat_info.st_size < (off_t)(256ul * 1024ul))
+                            {
+                                b_cmd_type = 2;
+                            }
+                            else
+                            {
+                                fprintf(stderr, "snck: file too big to edit\n");
+
+                                b_cmd_type = 3;
+                            }
+                        }
+                        else
+                        {
+                            fprintf(stderr, "snck: unsupported mode\n");
+
+                            b_cmd_type = 3;
+                        }
+                    }
+                    else
+                    {
+                        fprintf(stderr, "snck: special file\n");
+
+                        b_cmd_type = 3;
+                    }
+                }
+
+                if (0 == b_cmd_type)
+                {
+                    b_result = snck_file_exec_line(p_ctxt, p_line);
+                }
+                else if (1 == b_cmd_type)
+                {
+                    b_result = snck_builtin_cd(p_ctxt, &(o_cmd_expanded));
+                }
+                else if (2 == b_cmd_type)
+                {
+                    b_result = snck_builtin_edit(p_ctxt, &(o_cmd_expanded));
+                }
+                else
+                {
+                }
+
+                snck_string_cleanup(p_ctxt, &(o_cmd_expanded));
+
+                snck_expand_put(p_ctxt, p_cmd_expanded);
+            }
+            else
+            {
+                fprintf(stderr, "snck: unable to expand cmd name\n");
+            }
+
+            snck_string_cleanup(p_ctxt, &(o_cmd_sz));
         }
     }
     else

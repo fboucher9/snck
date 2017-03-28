@@ -42,4 +42,7 @@ Description:
 /* opendir() */
 #include <dirent.h>
 
+/* stat() */
+#include <sys/stat.h>
+
 /* end-of-file: snck_os.h */
