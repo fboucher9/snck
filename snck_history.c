@@ -92,6 +92,30 @@ snck_history_line_destroy(
 
 } /* snck_history_line_destroy() */
 
+static
+void
+snck_history_empty_list(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_list * const
+        p_list)
+{
+    struct snck_list * p_it;
+
+    p_it = p_list->p_next;
+
+    while (p_it != p_list)
+    {
+        struct snck_list * p_next = p_it->p_next;
+
+        snck_history_line_destroy(
+            p_ctxt,
+            (struct snck_history_line *)(p_it));
+
+        p_it = p_next;
+    }
+}
+
 char
 snck_history_init(
     struct snck_ctxt const * const
@@ -110,6 +134,13 @@ snck_history_init(
         p_ctxt,
         &(
             p_history->o_name));
+
+    snck_list_init(
+        &(
+            p_history->o_cache));
+
+    p_history->i_cache_len =
+        0u;
 
     {
         static char a_histfile_suffix[] = "/.snckhist";
@@ -149,6 +180,14 @@ snck_history_cleanup(
         p_ctxt,
         &(
             p_history->o_name));
+
+    snck_history_empty_list(
+        p_ctxt,
+        &(
+            p_history->o_cache));
+
+    p_history->i_cache_len =
+        0u;
 
 } /* snck_history_cleanup() */
 
@@ -309,20 +348,10 @@ snck_history_unload(
     struct snck_history * const p_history =
         p_ctxt->p_history;
 
-    struct snck_list * p_it;
-
-    p_it = p_history->o_list.p_next;
-
-    while (p_it != &(p_history->o_list))
-    {
-        struct snck_list * p_next = p_it->p_next;
-
-        snck_history_line_destroy(
-            p_ctxt,
-            (struct snck_history_line *)(p_it));
-
-        p_it = p_next;
-    }
+    snck_history_empty_list(
+        p_ctxt,
+        &(
+            p_history->o_list));
 
 } /* snck_history_unload() */
 
@@ -358,17 +387,17 @@ snck_history_save(
 
 } /* snck_history_save() */
 
+static
 void
-snck_history_add(
+snck_history_add_to_list(
     struct snck_ctxt const * const
         p_ctxt,
+    struct snck_list * const
+        p_list,
     char const * const
         p_buf)
 {
     char b_found;
-
-    struct snck_history * const p_history =
-        p_ctxt->p_history;
 
     b_found = 0;
 
@@ -377,9 +406,9 @@ snck_history_add(
     {
         struct snck_list * p_it;
 
-        p_it = p_history->o_list.p_next;
+        p_it = p_list->p_next;
 
-        while (!b_found && (p_it != &(p_history->o_list)))
+        while (!b_found && (p_it != p_list))
         {
             struct snck_history_line * p_history_line = (struct snck_history_line *)(p_it);
 
@@ -396,8 +425,7 @@ snck_history_add(
                 snck_list_join(
                     &(
                         p_history_line->o_list),
-                    &(
-                        p_history->o_list));
+                    p_list);
             }
             else
             {
@@ -420,8 +448,7 @@ snck_history_add(
             snck_list_join(
                 &(
                     p_history_line->o_list),
-                &(
-                    p_history->o_list));
+                p_list);
 
             snck_string_copy(
                 p_ctxt,
@@ -429,6 +456,40 @@ snck_history_add(
                     p_history_line->o_buf),
                 p_buf);
         }
+    }
+}
+
+void
+snck_history_add(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char const * const
+        p_buf)
+{
+    struct snck_history * const p_history =
+        p_ctxt->p_history;
+
+    snck_history_add_to_list(
+        p_ctxt,
+        &(
+            p_history->o_list),
+        p_buf);
+
+    snck_history_add_to_list(
+        p_ctxt,
+        &(
+            p_history->o_cache),
+        p_buf);
+
+    p_history->i_cache_len ++;
+
+    if (p_history->i_cache_len > 8)
+    {
+        snck_history_line_destroy(
+            p_ctxt,
+            (struct snck_history_line *)(p_history->o_cache.p_next));
+
+        p_history->i_cache_len --;
     }
 
 } /* snck_history_add() */

@@ -204,14 +204,51 @@ snck_suggest_list_add(
 
     char b_inserted;
 
-    (void)(
-        p_ctxt);
-
     p_it = p_suggest_list->o_list.p_next;
 
     b_inserted = 0;
 
     b_consumed = 1;
+
+    /* Remove bad duplicates */
+    while (p_it != &(p_suggest_list->o_list))
+    {
+        struct snck_list * const p_next = p_it->p_next;
+
+        struct snck_suggest_node * const p_suggest_temp =
+            (struct snck_suggest_node *)(
+                p_it);
+
+        int const i_duplicate =
+            strcmp(
+                p_suggest_node->o_buf.p_buf + 16u,
+                p_suggest_temp->o_buf.p_buf + 16u);
+
+        if (0 == i_duplicate)
+        {
+            int const i_compare =
+                strcmp(
+                    p_suggest_node->o_buf.p_buf,
+                    p_suggest_temp->o_buf.p_buf);
+
+            if (0 > i_compare)
+            {
+                snck_suggest_node_destroy(p_ctxt, p_suggest_temp);
+
+                p_suggest_list->i_count --;
+            }
+            else
+            {
+                b_consumed = 0;
+
+                b_inserted = 1;
+            }
+        }
+
+        p_it = p_next;
+    }
+
+    p_it = p_suggest_list->o_list.p_next;
 
     while (!b_inserted && (p_it != &(p_suggest_list->o_list)))
     {
@@ -219,32 +256,36 @@ snck_suggest_list_add(
             (struct snck_suggest_node *)(
                 p_it);
 
-        int const i_compare =
-            strcmp(
-                p_suggest_node->o_buf.p_buf,
-                p_suggest_temp->o_buf.p_buf);
-
-        if (0 == i_compare)
         {
-            b_consumed = 0;
+            int const i_compare =
+                strcmp(
+                    p_suggest_node->o_buf.p_buf,
+                    p_suggest_temp->o_buf.p_buf);
 
-            b_inserted = 1;
-        }
-        else if (0 > i_compare)
-        {
-            snck_list_join(
-                &(
-                    p_suggest_node->o_list),
-                &(
-                    p_suggest_temp->o_list));
+            if (0 == i_compare)
+            {
+                b_consumed = 0;
 
-            b_inserted = 1;
+                b_inserted = 1;
+            }
+            else if (0 > i_compare)
+            {
+                snck_list_join(
+                    &(
+                        p_suggest_node->o_list),
+                    &(
+                        p_suggest_temp->o_list));
 
-            p_suggest_list->i_count ++;
-        }
-        else
-        {
-            p_it = p_it->p_next;
+                b_inserted = 1;
+
+                p_suggest_list->i_count ++;
+
+                /* Scan after to remove duplicates */
+            }
+            else
+            {
+                p_it = p_it->p_next;
+            }
         }
     }
 
@@ -382,6 +423,97 @@ snck_fuzzy_compare(
 
 static
 void
+snck_suggest_from_history_line(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    size_t const
+        i_history_index,
+    struct snck_history_line const * const
+        p_history_line,
+    char const * const
+        p_wild_buf,
+    size_t const
+        i_wild_buf_len)
+{
+    int i_score;
+
+    i_score = snck_fuzzy_compare(p_history_line->o_buf.p_buf, p_wild_buf, i_wild_buf_len);
+
+    if (0 != i_score)
+    {
+        struct snck_suggest_node * p_suggest_node;
+
+        p_suggest_node = snck_suggest_node_create(p_ctxt);
+
+        if (p_suggest_node)
+        {
+            char b_consumed;
+
+            if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), p_history_line->o_buf.i_buf_len + 16u + 1u))
+            {
+                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s",
+                    (unsigned int)(i_score),
+                    (unsigned int)(i_history_index),
+                    p_history_line->o_buf.p_buf);
+
+                b_consumed = snck_suggest_list_add(p_ctxt, p_suggest_list, p_suggest_node);
+            }
+            else
+            {
+                b_consumed = 0;
+            }
+
+            if (!b_consumed)
+            {
+                snck_suggest_node_destroy(p_ctxt, p_suggest_node);
+            }
+        }
+    }
+
+}
+
+static
+void
+snck_suggest_from_history_list(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    size_t
+        i_history_index,
+    struct snck_list * const
+        p_list,
+    char const * const
+        p_wild_buf,
+    size_t const
+        i_wild_buf_len)
+{
+    struct snck_list const * p_it;
+
+    p_it = p_list->p_prev;
+
+    while (p_it != p_list)
+    {
+        struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
+
+        snck_suggest_from_history_line(
+            p_ctxt,
+            p_suggest_list,
+            i_history_index,
+            p_history_line,
+            p_wild_buf,
+            i_wild_buf_len);
+
+        i_history_index ++;
+
+        p_it = p_it->p_prev;
+    }
+}
+
+static
+void
 snck_completion(
     char const * buf,
     linenoiseCompletions * lc,
@@ -514,59 +646,24 @@ snck_completion(
         /* completing a history entry */
         if (key == 16)
         {
-            struct snck_list const * p_it;
-
-            int i_history_index;
+            /* Suggest from cache first ... */
+            snck_suggest_from_history_list(
+                p_ctxt,
+                &(o_suggest_list),
+                1,
+                &(p_ctxt->p_history->o_cache),
+                buf + i_cmd_prefix,
+                buf_len - i_cmd_prefix);
 
             snck_history_load(p_ctxt);
 
-            i_history_index = 1;
-
-            p_it = p_ctxt->p_history->o_list.p_prev;
-
-            while (p_it != &(p_ctxt->p_history->o_list))
-            {
-                struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
-
-                int i_score;
-
-                i_score = snck_fuzzy_compare(p_history_line->o_buf.p_buf, buf + i_cmd_prefix + 0, buf_len - i_cmd_prefix - 0);
-
-                if (0 != i_score)
-                {
-                    struct snck_suggest_node * p_suggest_node;
-
-                    p_suggest_node = snck_suggest_node_create(p_ctxt);
-
-                    if (p_suggest_node)
-                    {
-                        char b_consumed;
-
-                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), p_history_line->o_buf.i_buf_len + 16u + 1u))
-                        {
-                            sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s",
-                                (unsigned int)(i_score),
-                                (unsigned int)(i_history_index),
-                                p_history_line->o_buf.p_buf);
-
-                            b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
-                        }
-                        else
-                        {
-                            b_consumed = 0;
-                        }
-
-                        if (!b_consumed)
-                        {
-                            snck_suggest_node_destroy(p_ctxt, p_suggest_node);
-                        }
-                    }
-                }
-
-                i_history_index ++;
-
-                p_it = p_it->p_prev;
-            }
+            snck_suggest_from_history_list(
+                p_ctxt,
+                &(o_suggest_list),
+                64,
+                &(p_ctxt->p_history->o_list),
+                buf + i_cmd_prefix,
+                buf_len - i_cmd_prefix);
 
             snck_history_unload(p_ctxt);
         }
