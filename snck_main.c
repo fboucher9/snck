@@ -263,9 +263,36 @@ snck_main(
 
         if (p_opts->b_command)
         {
-            p_argv[0u] = "/bin/sh";
+            /* Allocate an array of arguments */
 
-            execvp(p_argv[0u], p_argv);
+            char * * l_argv;
+
+            l_argv = (char * *)(snck_heap_realloc(p_ctxt, NULL, sizeof(char *) * (4 + p_opts->i_argc)));
+
+            if (l_argv)
+            {
+                l_argv[0u] = (char *)("/bin/sh");
+
+                l_argv[1u] = (char *)("-c");
+
+                l_argv[2u] = (char *)(p_opts->p_script);
+
+                if (p_opts->i_argc)
+                {
+                    unsigned int argi;
+
+                    for (argi = 0u; argi < p_opts->i_argc; argi ++)
+                    {
+                        l_argv[3u + argi] = p_opts->p_argv[argi];
+                    }
+                }
+
+                l_argv[3u + p_opts->i_argc] = NULL;
+
+                execvp(l_argv[0u], l_argv);
+
+                snck_heap_realloc(p_ctxt, (void *)(l_argv), 0u);
+            }
 
             i_exit_status = 1;
         }
