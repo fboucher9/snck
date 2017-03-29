@@ -253,6 +253,11 @@ snck_token_find_matching(
         }
     }
 
+    if (b_result && !b_found && ((*p_pos) == p_line->i_buf_len) && ('\000' == c_match))
+    {
+        b_found = 1;
+    }
+
     if (!b_found)
     {
         b_result = 0;
@@ -279,103 +284,10 @@ snck_token_is_complete(
     struct snck_string const * const
         p_line)
 {
-    char b_result;
-
     /* Search for end-of-line */
-    size_t i_pos;
+    size_t i_pos = 0u;
 
-    (void)(p_ctxt);
-
-    i_pos = 0u;
-
-    b_result = 1;
-
-    while (b_result && (i_pos < p_line->i_buf_len))
-    {
-        if ('\\' == p_line->p_buf[i_pos])
-        {
-            i_pos ++;
-            if (i_pos < p_line->i_buf_len)
-            {
-                i_pos ++;
-            }
-            else
-            {
-                b_result = 0;
-            }
-        }
-        else if ('\'' == p_line->p_buf[i_pos])
-        {
-            i_pos ++;
-
-            b_result = 0;
-
-            while (!b_result && (i_pos < p_line->i_buf_len))
-            {
-                if ('\'' == p_line->p_buf[i_pos])
-                {
-                    b_result = 1;
-
-                    i_pos ++;
-                }
-                else
-                {
-                    i_pos ++;
-                }
-            }
-        }
-        else if ('\"' == p_line->p_buf[i_pos])
-        {
-            i_pos ++;
-
-            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '\"');
-        }
-        else if ('$' == p_line->p_buf[i_pos])
-        {
-            i_pos ++;
-            if (i_pos < p_line->i_buf_len)
-            {
-                if ('{' == p_line->p_buf[i_pos])
-                {
-                    /* Search for closing */
-                    i_pos ++;
-
-                    b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '}');
-                }
-                else if ('(' == p_line->p_buf[i_pos])
-                {
-                    /* Search for closing */
-                    i_pos ++;
-
-                    b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, ')');
-                }
-                else
-                {
-                    i_pos ++;
-                }
-            }
-        }
-        else if ('(' == p_line->p_buf[i_pos])
-        {
-            /* Search for closing */
-            i_pos ++;
-
-            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, ')');
-        }
-        else if ('`' == p_line->p_buf[i_pos])
-        {
-            /* Search for closing */
-            i_pos ++;
-
-            b_result = snck_token_find_matching(p_ctxt, p_line, &i_pos, '`');
-        }
-        else
-        {
-            i_pos ++;
-        }
-    }
-
-    return b_result;
+    return snck_token_find_matching(p_ctxt, p_line, &(i_pos), '\000');
 
 } /* snck_token_is_complete() */
 
