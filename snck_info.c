@@ -177,7 +177,9 @@ snck_info_detect_host(
 char
 snck_info_update_wd(
     struct snck_ctxt const * const
-        p_ctxt)
+        p_ctxt,
+    char const * const
+        p_ref)
 {
     char b_result;
 
@@ -198,33 +200,40 @@ snck_info_update_wd(
 
     p_temp = NULL;
 
-    while (b_result && b_retry)
+    if (p_ref)
     {
-        p_temp = snck_heap_realloc(p_ctxt, p_temp, i_max_len);
-
-        if (p_temp)
+        p_temp = (char *)(p_ref);
+    }
+    else
+    {
+        while (b_result && b_retry)
         {
-            if (NULL != getcwd(p_temp, i_max_len))
-            {
-                b_retry = 0;
-            }
-            else
-            {
-                if (ERANGE == errno)
-                {
-                    i_max_len <<= 1;
+            p_temp = snck_heap_realloc(p_ctxt, p_temp, i_max_len);
 
-                    b_retry = 1;
+            if (p_temp)
+            {
+                if (NULL != getcwd(p_temp, i_max_len))
+                {
+                    b_retry = 0;
                 }
                 else
                 {
-                    b_result = 0;
+                    if (ERANGE == errno)
+                    {
+                        i_max_len <<= 1;
+
+                        b_retry = 1;
+                    }
+                    else
+                    {
+                        b_result = 0;
+                    }
                 }
             }
-        }
-        else
-        {
-            b_result = 0;
+            else
+            {
+                b_result = 0;
+            }
         }
     }
 
@@ -273,11 +282,17 @@ snck_info_update_wd(
         }
     }
 
-    if (p_temp)
+    if (p_ref)
     {
-        snck_heap_realloc(p_ctxt, p_temp, 0u);
+    }
+    else
+    {
+        if (p_temp)
+        {
+            snck_heap_realloc(p_ctxt, p_temp, 0u);
 
-        p_temp = NULL;
+            p_temp = NULL;
+        }
     }
 
     return b_result;
@@ -323,7 +338,8 @@ snck_info_detect(
     {
         b_result =
             snck_info_update_wd(
-                p_ctxt);
+                p_ctxt,
+                NULL);
     }
 
     return b_result;

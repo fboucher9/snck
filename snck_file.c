@@ -234,6 +234,135 @@ snck_expand_put(
 } /* snck_expand_put() */
 
 static
+char const *
+snck_expand_folder_get(
+    struct snck_ctxt const * const p_ctxt,
+    char const * p_ref)
+{
+    /* Use sh -c 'echo ...' to expand the argument */
+    static char const a_fmt[] = "cd %s; pwd";
+
+    char * p_buf;
+
+    size_t i_buf_max_len;
+
+    size_t i_buf_len;
+
+    i_buf_max_len = 32u;
+
+    i_buf_len = 0;
+
+    p_buf = snck_heap_realloc(p_ctxt, NULL, i_buf_max_len + 1);
+
+    if (p_buf)
+    {
+        char * p_path;
+
+        p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
+
+        if (p_path)
+        {
+            sprintf(p_path, a_fmt, p_ref);
+
+            {
+                FILE * p_pipe = popen(p_path, "r");
+
+                if (p_pipe)
+                {
+                    char b_more;
+
+                    b_more = 1;
+
+                    while (b_more)
+                    {
+                        int c;
+
+                        c = fgetc(p_pipe);
+
+                        if (EOF != c)
+                        {
+                            if (i_buf_len >= i_buf_max_len)
+                            {
+                                i_buf_max_len += 32u;
+
+                                p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
+                            }
+
+                            if (p_buf)
+                            {
+                                p_buf[i_buf_len] = (char)(c);
+
+                                i_buf_len ++;
+                            }
+                            else
+                            {
+                                b_more = 0;
+                            }
+                        }
+                        else
+                        {
+                            b_more = 0;
+                        }
+                    }
+
+                    if (p_buf)
+                    {
+                        if (i_buf_len && ('\n' == p_buf[i_buf_len - 1u]))
+                        {
+                            i_buf_len --;
+                        }
+
+                        p_buf[i_buf_len] = '\000';
+
+                        i_buf_len ++;
+                    }
+
+                    pclose(p_pipe);
+                }
+                else
+                {
+                    i_buf_max_len = strlen(p_ref) + 1;
+
+                    p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
+
+                    if (p_buf)
+                    {
+                        strcpy(p_buf, p_ref);
+                    }
+                }
+            }
+
+            snck_heap_realloc(p_ctxt, p_path, 0u);
+        }
+        else
+        {
+            i_buf_max_len = strlen(p_ref) + 1;
+
+            p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
+
+            if (p_buf)
+            {
+                strcpy(p_buf, p_ref);
+            }
+        }
+    }
+
+    return p_buf;
+
+} /* snck_expand_folder_get() */
+
+static
+void
+snck_expand_folder_put(
+    struct snck_ctxt const * const p_ctxt,
+    char const * p_buf)
+{
+    snck_heap_realloc(p_ctxt, (void *)(p_buf), 0u);
+
+} /* snck_expand_folder_put() */
+
+
+static
 char
 snck_builtin_cd(
     struct snck_ctxt const * const p_ctxt,
@@ -256,7 +385,7 @@ snck_builtin_cd(
         else
         {
             /* Use sh -c 'echo ...' to expand the argument */
-            p_path_expand = snck_expand_get(p_ctxt, p_line->p_buf);
+            p_path_expand = snck_expand_folder_get(p_ctxt, p_line->p_buf);
 
             p_path = p_path_expand;
         }
@@ -274,7 +403,7 @@ snck_builtin_cd(
 
             if (0 == i_result)
             {
-                b_result = snck_info_update_wd(p_ctxt);
+                b_result = snck_info_update_wd(p_ctxt, p_path);
             }
             else
             {
@@ -297,7 +426,7 @@ snck_builtin_cd(
 
     if (p_path_expand)
     {
-        snck_expand_put(p_ctxt, p_path_expand);
+        snck_expand_folder_put(p_ctxt, p_path_expand);
 
         p_path_expand = NULL;
     }
