@@ -855,7 +855,7 @@ snck_file_decode_line(
                             /* Special case for jpg */
 
                             /* Launch editor */
-                            if (o_stat_info.st_size < (off_t)(256ul * 1024ul))
+                            if (o_stat_info.st_size < (off_t)(1024ul * 1024ul))
                             {
                                 b_cmd_type = 2;
                             }
