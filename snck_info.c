@@ -186,17 +186,9 @@ snck_info_update_wd(
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    size_t i_max_len;
-
     char * p_temp;
 
-    char b_retry;
-
     b_result = 1;
-
-    b_retry = 1;
-
-    i_max_len = 128u;
 
     p_temp = NULL;
 
@@ -206,6 +198,14 @@ snck_info_update_wd(
     }
     else
     {
+        size_t i_max_len;
+
+        char b_retry;
+
+        b_retry = 1;
+
+        i_max_len = 128u;
+
         while (b_result && b_retry)
         {
             p_temp = snck_heap_realloc(p_ctxt, p_temp, i_max_len);

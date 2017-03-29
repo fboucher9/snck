@@ -372,38 +372,40 @@ snck_builtin_cd(
 
     int i_result;
 
-    char const * p_path = NULL;
-
     char const * p_path_expand = NULL;
+
+    struct snck_string o_path;
+
+    snck_string_init(p_ctxt, &(o_path));
 
     if (p_line->p_buf[0u])
     {
         if (0 == strcmp(p_line->p_buf, "-"))
         {
-            p_path = p_ctxt->p_info->o_old_pwd.p_buf;
+            snck_string_copy_object(p_ctxt, &(o_path), &(p_ctxt->p_info->o_old_pwd));
         }
         else
         {
             /* Use sh -c 'echo ...' to expand the argument */
             p_path_expand = snck_expand_folder_get(p_ctxt, p_line->p_buf);
 
-            p_path = p_path_expand;
+            snck_string_copy(p_ctxt, &(o_path), p_path_expand);
         }
     }
     else
     {
-        p_path = p_ctxt->p_info->o_home.p_buf;
+        snck_string_copy_object(p_ctxt, &(o_path), &(p_ctxt->p_info->o_home));
     }
 
-    if (p_path)
+    if (o_path.p_buf)
     {
-        if (0 != strcmp(p_path, "."))
+        if (0 != strcmp(o_path.p_buf, "."))
         {
-            i_result = chdir(p_path);
+            i_result = chdir(o_path.p_buf);
 
             if (0 == i_result)
             {
-                b_result = snck_info_update_wd(p_ctxt, p_path);
+                b_result = snck_info_update_wd(p_ctxt, o_path.p_buf);
             }
             else
             {
@@ -430,6 +432,8 @@ snck_builtin_cd(
 
         p_path_expand = NULL;
     }
+
+    snck_string_cleanup(p_ctxt, &(o_path));
 
     return b_result;
 
