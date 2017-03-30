@@ -66,6 +66,17 @@ snck_token_phrase_destroy(
 #endif
 
 char
+snck_token_find_next_word(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string const * const
+        p_line,
+    struct snck_string * const
+        p_word,
+    struct snck_string * const
+        p_args);
+
+char
 snck_token_is_complete(
     struct snck_ctxt const * const
         p_ctxt,

@@ -31,6 +31,16 @@ Description:
 /* Heap */
 #include "snck_heap.h"
 
+struct snck_token_iterator
+{
+    struct snck_string const *
+        p_line;
+
+    size_t
+        i_offset;
+
+}; /* struct snck_token_iterator */
+
 #if 0
 
 /*
@@ -155,10 +165,8 @@ char
 snck_token_find_matching(
     struct snck_ctxt const * const
         p_ctxt,
-    struct snck_string const * const
-        p_line,
-    size_t * const
-        p_pos,
+    struct snck_token_iterator * const
+        p_token_iterator,
     char const
         c_match)
 {
@@ -166,96 +174,148 @@ snck_token_find_matching(
 
     char b_found;
 
+    struct snck_string const * p_line = p_token_iterator->p_line;
+
     b_found = 0;
 
     b_result = 1;
 
-    while (b_result && !b_found && ((*p_pos) < p_line->i_buf_len))
+    while (b_result && !b_found)
     {
-        if (c_match == p_line->p_buf[(*p_pos)])
+        char c;
+
+        if (p_token_iterator->i_offset < p_line->i_buf_len)
         {
-            b_found = 1;
-
-            (*p_pos) ++;
-        }
-        else if ('\\' == p_line->p_buf[(*p_pos)])
-        {
-            (*p_pos) ++;
-
-            if ((*p_pos) < p_line->i_buf_len)
-            {
-                (*p_pos) ++;
-            }
-        }
-        else if ('\'' == p_line->p_buf[(*p_pos)])
-        {
-            (*p_pos) ++;
-
-            b_result = 0;
-
-            while (!b_result && ((*p_pos) < p_line->i_buf_len))
-            {
-                if ('\'' == p_line->p_buf[(*p_pos)])
-                {
-                    b_result = 1;
-
-                    (*p_pos) ++;
-                }
-                else
-                {
-                    (*p_pos) ++;
-                }
-            }
-        }
-        else if ('$' == p_line->p_buf[(*p_pos)])
-        {
-            (*p_pos) ++;
-
-            if ((*p_pos) < p_line->i_buf_len)
-            {
-                if ('{' == p_line->p_buf[(*p_pos)])
-                {
-                    /* Search for closing */
-                    (*p_pos) ++;
-
-                    b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, '}');
-                }
-                else if ('(' == p_line->p_buf[(*p_pos)])
-                {
-                    /* Search for closing */
-                    (*p_pos) ++;
-
-                    b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, ')');
-                }
-                else
-                {
-                    (*p_pos) ++;
-                }
-            }
-        }
-        else if ('(' == p_line->p_buf[(*p_pos)])
-        {
-            /* Search for closing */
-            (*p_pos) ++;
-
-            b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, ')');
-        }
-        else if ('`' == p_line->p_buf[(*p_pos)])
-        {
-            /* Search for closing */
-            (*p_pos) ++;
-
-            b_result = snck_token_find_matching(p_ctxt, p_line, p_pos, '`');
+            c = p_line->p_buf[p_token_iterator->i_offset];
         }
         else
         {
-            (*p_pos) ++;
+            c = '\000';
         }
-    }
 
-    if (b_result && !b_found && ((*p_pos) == p_line->i_buf_len) && ('\000' == c_match))
-    {
-        b_found = 1;
+        if (c_match == c)
+        {
+            b_found = 1;
+        }
+        else if ('\t' == c)
+        {
+            if (' ' == c_match)
+            {
+                b_found = 1;
+            }
+            else
+            {
+                p_token_iterator->i_offset ++;
+            }
+        }
+        else if ('\000' == c)
+        {
+            if (' ' == c_match)
+            {
+                b_found = 1;
+            }
+            else
+            {
+                b_result = 0;
+            }
+        }
+        else if ('\\' == c)
+        {
+            p_token_iterator->i_offset ++;
+
+            if (p_token_iterator->i_offset < p_line->i_buf_len)
+            {
+                p_token_iterator->i_offset ++;
+            }
+            else
+            {
+                b_result = 0;
+            }
+        }
+        else if ('\'' == c)
+        {
+            p_token_iterator->i_offset ++;
+
+            b_result = 0;
+
+            while (!b_result && (p_token_iterator->i_offset < p_line->i_buf_len))
+            {
+                if ('\'' == p_line->p_buf[p_token_iterator->i_offset])
+                {
+                    b_result = 1;
+
+                    p_token_iterator->i_offset ++;
+                }
+                else
+                {
+                    p_token_iterator->i_offset ++;
+                }
+            }
+        }
+        else if ('$' == c)
+        {
+            p_token_iterator->i_offset ++;
+
+            if (p_token_iterator->i_offset < p_line->i_buf_len)
+            {
+                if ('{' == p_line->p_buf[p_token_iterator->i_offset])
+                {
+                    /* Search for closing */
+                    p_token_iterator->i_offset ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_token_iterator, '}');
+
+                    if (b_result)
+                    {
+                        p_token_iterator->i_offset ++;
+                    }
+                }
+                else if ('(' == p_line->p_buf[p_token_iterator->i_offset])
+                {
+                    /* Search for closing */
+                    p_token_iterator->i_offset ++;
+
+                    b_result = snck_token_find_matching(p_ctxt, p_token_iterator, ')');
+
+                    if (b_result)
+                    {
+                        p_token_iterator->i_offset ++;
+                    }
+                }
+                else
+                {
+                    p_token_iterator->i_offset ++;
+                }
+            }
+        }
+        else if ('(' == c)
+        {
+            /* Search for closing */
+            p_token_iterator->i_offset ++;
+
+            b_result = snck_token_find_matching(p_ctxt, p_token_iterator, ')');
+
+            if (b_result)
+            {
+                p_token_iterator->i_offset ++;
+            }
+        }
+        else if ('`' == c)
+        {
+            /* Search for closing */
+            p_token_iterator->i_offset ++;
+
+            b_result = snck_token_find_matching(p_ctxt, p_token_iterator, '`');
+
+            if (b_result)
+            {
+                p_token_iterator->i_offset ++;
+            }
+        }
+        else
+        {
+            p_token_iterator->i_offset ++;
+        }
     }
 
     if (!b_found)
@@ -266,6 +326,124 @@ snck_token_find_matching(
     return b_result;
 
 } /* snck_token_find_matching() */
+
+char
+snck_token_skip_whitespace(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_token_iterator * const
+        p_token_iterator)
+{
+    char b_result;
+
+    char b_found;
+
+    (void)(p_ctxt);
+
+    b_result = 1;
+
+    b_found = 0;
+
+    while (
+        b_result
+        && (
+            !b_found)
+        && (
+            p_token_iterator->i_offset < p_token_iterator->p_line->i_buf_len))
+    {
+        char c;
+
+        c = p_token_iterator->p_line->p_buf[p_token_iterator->i_offset];
+
+        if ((' ' == c)
+            || ('\t' == c)
+            || ('\r' == c)
+            || ('\n' == c))
+        {
+            p_token_iterator->i_offset ++;
+        }
+        else
+        {
+            b_found = 1;
+        }
+    }
+
+    if (!b_found)
+    {
+        b_result = 0;
+    }
+
+    return b_result;
+}
+
+char
+snck_token_find_next_word(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string const * const
+        p_line,
+    struct snck_string * const
+        p_word,
+    struct snck_string * const
+        p_args)
+{
+    char b_result;
+
+    struct snck_token_iterator o_token_iterator;
+
+    o_token_iterator.p_line = p_line;
+
+    o_token_iterator.i_offset = 0u;
+
+    /* Advance iterator until beginning of next word */
+    if (snck_token_skip_whitespace(p_ctxt, &(o_token_iterator)))
+    {
+        size_t const i_word_begin = o_token_iterator.i_offset;
+
+        /* Advance iterator to end of word */
+        if (snck_token_find_matching(p_ctxt, &(o_token_iterator), ' '))
+        {
+            size_t const i_word_end = o_token_iterator.i_offset;
+
+            size_t const i_word_len = i_word_end - i_word_begin;
+
+            /* Return found word */
+            snck_string_ref_buffer(
+                p_ctxt,
+                p_word,
+                p_line->p_buf + i_word_begin,
+                i_word_len);
+
+            if (snck_token_skip_whitespace(p_ctxt, &(o_token_iterator)))
+            {
+                snck_string_ref(
+                    p_ctxt,
+                    p_args,
+                    p_line->p_buf + o_token_iterator.i_offset);
+            }
+            else
+            {
+                snck_string_ref(
+                    p_ctxt,
+                    p_args,
+                    "");
+            }
+
+            b_result = 1;
+        }
+        else
+        {
+            b_result = 0;
+        }
+    }
+    else
+    {
+        b_result = 0;
+    }
+
+    return b_result;
+
+} /* snck_token_find_next_word() */
 
 /*
 
@@ -284,10 +462,13 @@ snck_token_is_complete(
     struct snck_string const * const
         p_line)
 {
-    /* Search for end-of-line */
-    size_t i_pos = 0u;
+    struct snck_token_iterator o_token_iterator;
 
-    return snck_token_find_matching(p_ctxt, p_line, &(i_pos), '\000');
+    o_token_iterator.p_line = p_line;
+
+    o_token_iterator.i_offset = 0u;
+
+    return snck_token_find_matching(p_ctxt, &(o_token_iterator), '\000');
 
 } /* snck_token_is_complete() */
 

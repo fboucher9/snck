@@ -50,65 +50,89 @@ Description:
 #include "snck_opts.h"
 
 static
-int
-snck_find_word_begin(
-    char const * p_args)
+char *
+snck_expand_do_pipe(
+    struct snck_ctxt const * const p_ctxt,
+    char const * p_path)
 {
-    int i_args_it = 0;
+    size_t i_buf_max_len;
 
-    while ((p_args[i_args_it] == ' ') || (p_args[i_args_it] == '\t'))
+    size_t i_buf_len;
+
+    char * p_buf;
+
+    i_buf_max_len = 32u;
+
+    i_buf_len = 0;
+
+    p_buf = snck_heap_realloc(p_ctxt, NULL, i_buf_max_len + 1);
+
+    if (p_buf)
     {
-        i_args_it ++;
+        FILE * p_pipe = popen(p_path, "r");
+
+        if (p_pipe)
+        {
+            char b_more;
+
+            b_more = 1;
+
+            while (b_more)
+            {
+                int c;
+
+                c = fgetc(p_pipe);
+
+                if (EOF != c)
+                {
+                    if (i_buf_len >= i_buf_max_len)
+                    {
+                        i_buf_max_len += 32u;
+
+                        p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
+                    }
+
+                    if (p_buf)
+                    {
+                        p_buf[i_buf_len] = (char)(c);
+
+                        i_buf_len ++;
+                    }
+                    else
+                    {
+                        b_more = 0;
+                    }
+                }
+                else
+                {
+                    b_more = 0;
+                }
+            }
+
+            if (p_buf)
+            {
+                if (i_buf_len && ('\n' == p_buf[i_buf_len - 1u]))
+                {
+                    i_buf_len --;
+                }
+
+                p_buf[i_buf_len] = '\000';
+
+                i_buf_len ++;
+            }
+
+            pclose(p_pipe);
+        }
+        else
+        {
+            snck_heap_realloc(p_ctxt, p_buf, 0u);
+
+            p_buf = NULL;
+        }
     }
 
-    return i_args_it;
+    return p_buf;
 }
-
-int
-snck_find_word_end(
-    char const * p_args)
-{
-    int i_args_it = 0;
-
-    while (p_args[i_args_it] && (' ' != p_args[i_args_it]) && ('\t' != p_args[i_args_it]))
-    {
-        i_args_it ++;
-    }
-
-    return i_args_it;
-}
-
-static
-char
-snck_find_word(
-    struct snck_string const * const p_line,
-    struct snck_string * const p_cmd,
-    struct snck_string * const p_args)
-{
-    char b_found;
-
-    int i_args_it = snck_find_word_begin(p_line->p_buf);
-
-    if (p_line->p_buf[i_args_it])
-    {
-        int i_word_len = snck_find_word_end(p_line->p_buf + i_args_it);
-
-        snck_string_init_ref_buffer(p_cmd, p_line->p_buf + i_args_it, i_word_len);
-
-        i_word_len += snck_find_word_begin(p_line->p_buf + i_args_it + i_word_len);
-
-        snck_string_init_ref_buffer(p_args, p_line->p_buf + i_args_it + i_word_len, p_line->i_buf_len - i_args_it - i_word_len);
-
-        b_found = 1;
-    }
-    else
-    {
-        b_found = 0;
-    }
-
-    return b_found;
-
-} /* snck_find_word() */
 
 static
 char const *
@@ -119,103 +143,28 @@ snck_expand_get(
     /* Use sh -c 'echo ...' to expand the argument */
     static char const a_fmt[] = "PATH= echo -n %s";
 
-    char * p_buf;
+    char * p_buf = NULL;
 
-    size_t i_buf_max_len;
+    char * p_path;
 
-    size_t i_buf_len;
+    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
 
-    i_buf_max_len = 32u;
-
-    i_buf_len = 0;
-
-    p_buf = snck_heap_realloc(p_ctxt, NULL, i_buf_max_len + 1);
-
-    if (p_buf)
+    if (p_path)
     {
-        char * p_path;
+        sprintf(p_path, a_fmt, p_ref);
 
-        p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
+        p_buf = snck_expand_do_pipe(p_ctxt, p_path);
 
-        if (p_path)
+        snck_heap_realloc(p_ctxt, p_path, 0u);
+    }
+
+    if (!p_buf)
+    {
+        p_buf = snck_heap_realloc(p_ctxt, NULL, strlen(p_ref) + 1);
+
+        if (p_buf)
         {
-            sprintf(p_path, a_fmt, p_ref);
-
-            {
-                FILE * p_pipe = popen(p_path, "r");
-
-                if (p_pipe)
-                {
-                    char b_more;
-
-                    b_more = 1;
-
-                    while (b_more)
-                    {
-                        int c;
-
-                        c = fgetc(p_pipe);
-
-                        if (EOF != c)
-                        {
-                            if (i_buf_len >= i_buf_max_len)
-                            {
-                                i_buf_max_len += 32u;
-
-                                p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-                            }
-
-                            if (p_buf)
-                            {
-                                p_buf[i_buf_len] = (char)(c);
-
-                                i_buf_len ++;
-                            }
-                            else
-                            {
-                                b_more = 0;
-                            }
-                        }
-                        else
-                        {
-                            b_more = 0;
-                        }
-                    }
-
-                    if (p_buf)
-                    {
-                        p_buf[i_buf_len] = '\000';
-
-                        i_buf_len ++;
-                    }
-
-                    pclose(p_pipe);
-                }
-                else
-                {
-                    i_buf_max_len = strlen(p_ref) + 1;
-
-                    p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-
-                    if (p_buf)
-                    {
-                        strcpy(p_buf, p_ref);
-                    }
-                }
-            }
-
-            snck_heap_realloc(p_ctxt, p_path, 0u);
-        }
-        else
-        {
-            i_buf_max_len = strlen(p_ref) + 1;
-
-            p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-
-            if (p_buf)
-            {
-                strcpy(p_buf, p_ref);
-            }
+            strcpy(p_buf, p_ref);
         }
     }
 
@@ -242,108 +191,28 @@ snck_expand_folder_get(
     /* Use sh -c 'echo ...' to expand the argument */
     static char const a_fmt[] = "cd %s; pwd";
 
-    char * p_buf;
+    char * p_buf = NULL;
 
-    size_t i_buf_max_len;
+    char * p_path;
 
-    size_t i_buf_len;
+    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
 
-    i_buf_max_len = 32u;
-
-    i_buf_len = 0;
-
-    p_buf = snck_heap_realloc(p_ctxt, NULL, i_buf_max_len + 1);
-
-    if (p_buf)
+    if (p_path)
     {
-        char * p_path;
+        sprintf(p_path, a_fmt, p_ref);
 
-        p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
+        p_buf = snck_expand_do_pipe(p_ctxt, p_path);
 
-        if (p_path)
+        snck_heap_realloc(p_ctxt, p_path, 0u);
+    }
+
+    if (!p_buf)
+    {
+        p_buf = snck_heap_realloc(p_ctxt, p_buf, strlen(p_ref) + 1);
+
+        if (p_buf)
         {
-            sprintf(p_path, a_fmt, p_ref);
-
-            {
-                FILE * p_pipe = popen(p_path, "r");
-
-                if (p_pipe)
-                {
-                    char b_more;
-
-                    b_more = 1;
-
-                    while (b_more)
-                    {
-                        int c;
-
-                        c = fgetc(p_pipe);
-
-                        if (EOF != c)
-                        {
-                            if (i_buf_len >= i_buf_max_len)
-                            {
-                                i_buf_max_len += 32u;
-
-                                p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-                            }
-
-                            if (p_buf)
-                            {
-                                p_buf[i_buf_len] = (char)(c);
-
-                                i_buf_len ++;
-                            }
-                            else
-                            {
-                                b_more = 0;
-                            }
-                        }
-                        else
-                        {
-                            b_more = 0;
-                        }
-                    }
-
-                    if (p_buf)
-                    {
-                        if (i_buf_len && ('\n' == p_buf[i_buf_len - 1u]))
-                        {
-                            i_buf_len --;
-                        }
-
-                        p_buf[i_buf_len] = '\000';
-
-                        i_buf_len ++;
-                    }
-
-                    pclose(p_pipe);
-                }
-                else
-                {
-                    i_buf_max_len = strlen(p_ref) + 1;
-
-                    p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-
-                    if (p_buf)
-                    {
-                        strcpy(p_buf, p_ref);
-                    }
-                }
-            }
-
-            snck_heap_realloc(p_ctxt, p_path, 0u);
-        }
-        else
-        {
-            i_buf_max_len = strlen(p_ref) + 1;
-
-            p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
-
-            if (p_buf)
-            {
-                strcpy(p_buf, p_ref);
-            }
+            strcpy(p_buf, p_ref);
         }
     }
 
@@ -457,7 +326,7 @@ snck_builtin_set(
 
     snck_string_init(p_ctxt, &(o_rest));
 
-    if (snck_find_word(p_line, &(o_name), &(o_rest)))
+    if (snck_token_find_next_word(p_ctxt, p_line, &(o_name), &(o_rest)))
     {
         if (o_rest.p_buf[0u])
         {
@@ -863,7 +732,7 @@ snck_file_decode_line(
 
     snck_string_init(p_ctxt, &(o_args));
 
-    if (snck_find_word(p_line, &(o_cmd), &(o_args)))
+    if (snck_token_find_next_word(p_ctxt, p_line, &(o_cmd), &(o_args)))
     {
         static char const a_name_cd[] = { 'c', 'd' };
 
