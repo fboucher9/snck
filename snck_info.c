@@ -174,125 +174,110 @@ snck_info_detect_host(
 
 } /* snck_info_detect_host() */
 
+static
+char
+snck_info_detect_wd(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string * const
+        p_temp)
+{
+    char b_result;
+
+    size_t i_max_len;
+
+    char b_retry;
+
+    b_result = 1;
+
+    b_retry = 1;
+
+    i_max_len = 128u;
+
+    while (b_result && b_retry)
+    {
+        if (snck_string_resize(p_ctxt, p_temp, i_max_len))
+        {
+            if (NULL != getcwd(p_temp->p_buf, i_max_len))
+            {
+                p_temp->i_buf_len = strlen(p_temp->p_buf);
+
+                b_retry = 0;
+            }
+            else
+            {
+                if (ERANGE == errno)
+                {
+                    i_max_len <<= 1;
+
+                    b_retry = 1;
+                }
+                else
+                {
+                    b_result = 0;
+                }
+            }
+        }
+        else
+        {
+            b_result = 0;
+        }
+    }
+
+    return b_result;
+
+} /* snck_info_detect_wd() */
+
 char
 snck_info_update_wd(
     struct snck_ctxt const * const
         p_ctxt,
-    char const * const
-        p_ref)
+    struct snck_string const * const
+        p_temp)
 {
     char b_result;
 
     struct snck_info * const p_info =
         p_ctxt->p_info;
 
-    char * p_temp;
-
     b_result = 1;
 
-    p_temp = NULL;
-
-    if (p_ref)
+    /* Detect if value has changed */
+    if (!p_info->o_pwd.i_buf_len || (0 != snck_string_compare(p_temp, &(p_info->o_pwd))))
     {
-        p_temp = (char *)(p_ref);
-    }
-    else
-    {
-        size_t i_max_len;
+        static char const a_name_pwd[] = { 'P', 'W', 'D' };
 
-        char b_retry;
+        static struct snck_string o_name_pwd = { (char *)(a_name_pwd), sizeof(a_name_pwd), 0u };
 
-        b_retry = 1;
-
-        i_max_len = 128u;
-
-        while (b_result && b_retry)
+        if (snck_env_set(p_ctxt, &(o_name_pwd), p_temp))
         {
-            p_temp = snck_heap_realloc(p_ctxt, p_temp, i_max_len);
-
-            if (p_temp)
+            if (p_info->o_pwd.i_buf_len)
             {
-                if (NULL != getcwd(p_temp, i_max_len))
-                {
-                    b_retry = 0;
-                }
-                else
-                {
-                    if (ERANGE == errno)
-                    {
-                        i_max_len <<= 1;
-
-                        b_retry = 1;
-                    }
-                    else
-                    {
-                        b_result = 0;
-                    }
-                }
+                b_result =
+                    snck_string_copy_object(
+                        p_ctxt,
+                        &(p_info->o_old_pwd),
+                        &(p_info->o_pwd));
             }
-            else
+
+            if (b_result)
             {
-                b_result = 0;
-            }
-        }
-    }
-
-    if (b_result)
-    {
-        /* Detect if value has changed */
-        if (!p_info->o_pwd.p_buf || (0 != strcmp(p_temp, p_info->o_pwd.p_buf)))
-        {
-            static char const a_name_pwd[] = { 'P', 'W', 'D' };
-
-            static struct snck_string o_name_pwd = { (char *)(a_name_pwd), sizeof(a_name_pwd), 0u };
-
-            struct snck_string o_value;
-
-            snck_string_init_ref(&(o_value), p_temp);
-
-            if (snck_env_set(p_ctxt, &(o_name_pwd), &(o_value)))
-            {
-                if (p_info->o_pwd.p_buf)
-                {
-                    b_result =
-                        snck_string_copy(
-                            p_ctxt,
-                            &(p_info->o_old_pwd),
-                            p_info->o_pwd.p_buf);
-                }
-
-                if (b_result)
-                {
-                    b_result =
-                        snck_string_copy(
-                            p_ctxt,
-                            &(p_info->o_pwd),
-                            p_temp);
-                }
-            }
-            else
-            {
-                b_result = 0;
+                b_result =
+                    snck_string_copy_object(
+                        p_ctxt,
+                        &(p_info->o_pwd),
+                        p_temp);
             }
         }
         else
         {
-            /* Value has not changed */
-            b_result = 1;
+            b_result = 0;
         }
-    }
-
-    if (p_ref)
-    {
     }
     else
     {
-        if (p_temp)
-        {
-            snck_heap_realloc(p_ctxt, p_temp, 0u);
-
-            p_temp = NULL;
-        }
+        /* Value has not changed */
+        b_result = 1;
     }
 
     return b_result;
@@ -336,10 +321,21 @@ snck_info_detect(
     if (
         b_result)
     {
-        b_result =
-            snck_info_update_wd(
-                p_ctxt,
-                NULL);
+        struct snck_string o_temp;
+
+        snck_string_init(p_ctxt, &(o_temp));
+
+        b_result = snck_info_detect_wd(p_ctxt, &(o_temp));
+
+        if (b_result)
+        {
+            b_result =
+                snck_info_update_wd(
+                    p_ctxt,
+                    &(o_temp));
+        }
+
+        snck_string_cleanup(p_ctxt, &(o_temp));
     }
 
     return b_result;

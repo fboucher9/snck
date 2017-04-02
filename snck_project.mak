@@ -33,7 +33,7 @@ SNCK_LIBS =
 SNCK_CFLAGS = -Wall -Wextra -pedantic -I$(SNCK_DST_PATH)
 
 ifdef SNCK_DBG
-SNCK_CFLAGS += -g -O0
+SNCK_CFLAGS += -g -O0 -DSNCK_DBG
 else
 SNCK_CFLAGS += -s -O2 -Os
 endif

@@ -20,6 +20,9 @@ Description:
 /* Predefine context handle */
 struct snck_ctxt;
 
+/* Predefine main argument list */
+struct snck_string;
+
 /*
 
 Structure: snck_opts
@@ -37,11 +40,11 @@ Comments:
 */
 struct snck_opts
 {
-    char const * p_script;
+    struct snck_string const * p_script;
 
-    char * * p_argv;
+    struct snck_string const * p_argv;
 
-    unsigned int i_argc;
+    size_t i_argc;
 
     char b_login;
 
@@ -61,10 +64,10 @@ char
 snck_opts_init(
     struct snck_ctxt const * const
         p_ctxt,
-    unsigned int const
-        argc,
-    char * * const
-        argv);
+    struct snck_string const * const
+        p_arg_list,
+    size_t const
+        i_arg_count);
 
 void
 snck_opts_cleanup(

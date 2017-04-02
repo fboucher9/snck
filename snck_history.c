@@ -143,7 +143,7 @@ snck_history_init(
         0u;
 
     {
-        static char a_histfile_suffix[] = "/.snckhist";
+        static char a_histfile_suffix[] = { '/', '.', 's', 'n', 'c', 'k', 'h', 'i', 's', 't' };
 
         snck_string_copy(
             p_ctxt,
@@ -151,11 +151,12 @@ snck_history_init(
                 p_history->o_name),
             p_ctxt->p_info->o_home.p_buf);
 
-        snck_string_append(
+        snck_string_append_buffer(
             p_ctxt,
             &(
                 p_history->o_name),
-            a_histfile_suffix);
+            a_histfile_suffix,
+            sizeof(a_histfile_suffix));
     }
 
     b_result = 1;
@@ -296,7 +297,18 @@ snck_history_load(
     struct snck_history * const p_history =
         p_ctxt->p_history;
 
-    p_file = fopen(p_history->o_name.p_buf, "r");
+    char * p_name0 = snck_string_get(p_ctxt, &(p_history->o_name));
+
+    if (p_name0)
+    {
+        p_file = fopen(p_name0, "r");
+
+        snck_string_put(p_ctxt, p_name0);
+    }
+    else
+    {
+        p_file = NULL;
+    }
 
     if (p_file)
     {
@@ -365,7 +377,18 @@ snck_history_save(
     struct snck_history * const p_history =
         p_ctxt->p_history;
 
-    p_file = fopen(p_history->o_name.p_buf, "w");
+    char * p_name0 = snck_string_get(p_ctxt, &(p_history->o_name));
+
+    if (p_name0)
+    {
+        p_file = fopen(p_name0, "w");
+
+        snck_string_put(p_ctxt, p_name0);
+    }
+    else
+    {
+        p_file = NULL;
+    }
 
     if (p_file)
     {
@@ -412,7 +435,11 @@ snck_history_add_to_list(
         {
             struct snck_history_line * p_history_line = (struct snck_history_line *)(p_it);
 
-            if (0 == strcmp(p_buf, p_history_line->o_buf.p_buf))
+            struct snck_string o_buf;
+
+            snck_string_init_ref(&(o_buf), p_buf);
+
+            if (0 == snck_string_compare(&(o_buf), &(p_history_line->o_buf)))
             {
                 b_found = 1;
 

@@ -57,7 +57,7 @@ char
 snck_info_update_wd(
     struct snck_ctxt const * const
         p_ctxt,
-    char const * const
+    struct snck_string const * const
         p_ref);
 
 /* end-of-file: snck_info.h */

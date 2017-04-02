@@ -17,9 +17,16 @@ Description:
 
 #define INC_SNCK_MAIN_H
 
+/* Predefine os argument list */
+struct snck_string;
+
+/* --- Interface --- */
+
 int
 snck_main(
-    unsigned int i_argc,
-    char * * p_argv);
+    struct snck_string const * const
+        p_arg_list,
+    size_t const
+        i_arg_count);
 
 /* end-of-file: snck_main.h */

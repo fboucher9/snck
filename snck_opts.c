@@ -22,6 +22,9 @@ Description:
 /* Module */
 #include "snck_opts.h"
 
+/* String */
+#include "snck_string.h"
+
 /*
 
 Function: snck_opts_init
@@ -42,10 +45,10 @@ char
 snck_opts_init(
     struct snck_ctxt const * const
         p_ctxt,
-    unsigned int const
-        i_argc,
-    char * * const
-        p_argv)
+    struct snck_string const * const
+        p_arg_list,
+    size_t const
+        i_arg_count)
 {
     char b_result;
 
@@ -71,41 +74,43 @@ snck_opts_init(
 
     p_opts->b_dryrun = 0;
 
-    if ('-' == p_argv[0u][0u])
+    if ('-' == p_arg_list[0u].p_buf[0u])
     {
         p_opts->b_login = 1;
     }
 
     i = 1;
 
-    while (i < i_argc)
+    while (i < i_arg_count)
     {
-        if (('-' == p_argv[i][0u])
-            || ('+' == p_argv[i][0u]))
-        {
-            char b = ('-' == p_argv[i][0u]);
+        struct snck_string const * const p_node = p_arg_list + i;
 
-            if ('c' == p_argv[i][1u])
+        if (('-' == p_node->p_buf[0u])
+            || ('+' == p_node->p_buf[0u]))
+        {
+            char b = ('-' == p_node->p_buf[0u]);
+
+            if ('c' == p_node->p_buf[1u])
             {
                 p_opts->b_command = b;
             }
-            else if ('l' == p_argv[i][1u])
+            else if ('l' == p_node->p_buf[1u])
             {
                 p_opts->b_login = b;
             }
-            else if ('s' == p_argv[i][1u])
+            else if ('s' == p_node->p_buf[1u])
             {
                 p_opts->b_input = b;
             }
-            else if ('x' == p_argv[i][1u])
+            else if ('x' == p_node->p_buf[1u])
             {
                 p_opts->b_trace = b;
             }
-            else if ('i' == p_argv[i][1u])
+            else if ('i' == p_node->p_buf[1u])
             {
                 p_opts->b_interact = b;
             }
-            else if ('n' == p_argv[i][1u])
+            else if ('n' == p_node->p_buf[1u])
             {
                 p_opts->b_dryrun = b;
             }
@@ -116,18 +121,18 @@ snck_opts_init(
         {
             if (!p_opts->b_input)
             {
-                p_opts->p_script = p_argv[i];
+                p_opts->p_script = p_node;
 
                 i ++;
             }
 
-            if (i < i_argc)
+            if (i < i_arg_count)
             {
-                p_opts->p_argv = p_argv + i;
+                p_opts->p_argv = p_arg_list + i;
 
-                p_opts->i_argc = (unsigned int)(i_argc - i);
+                p_opts->i_argc = (unsigned int)(i_arg_count - i);
 
-                i = i_argc;
+                i = i_arg_count;
             }
         }
     }

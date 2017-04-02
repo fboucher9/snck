@@ -50,24 +50,23 @@ Description:
 #include "snck_opts.h"
 
 static
-char *
+char
 snck_expand_do_pipe(
     struct snck_ctxt const * const p_ctxt,
+    struct snck_string * p_output,
     char const * p_path)
 {
+    char b_result;
+
     size_t i_buf_max_len;
-
-    size_t i_buf_len;
-
-    char * p_buf;
 
     i_buf_max_len = 32u;
 
-    i_buf_len = 0;
+    p_output->i_buf_len = 0;
 
-    p_buf = snck_heap_realloc(p_ctxt, NULL, i_buf_max_len + 1);
+    b_result = snck_string_resize(p_ctxt, p_output, i_buf_max_len + 1);
 
-    if (p_buf)
+    if (b_result)
     {
         FILE * p_pipe = popen(p_path, "r");
 
@@ -77,7 +76,7 @@ snck_expand_do_pipe(
 
             b_more = 1;
 
-            while (b_more)
+            while (b_result && b_more)
             {
                 int c;
 
@@ -85,22 +84,18 @@ snck_expand_do_pipe(
 
                 if (EOF != c)
                 {
-                    if (i_buf_len >= i_buf_max_len)
+                    if (p_output->i_buf_len >= i_buf_max_len)
                     {
                         i_buf_max_len += 32u;
 
-                        p_buf = snck_heap_realloc(p_ctxt, p_buf, i_buf_max_len + 1);
+                        b_result = snck_string_resize(p_ctxt, p_output, i_buf_max_len + 1);
                     }
 
-                    if (p_buf)
+                    if (b_result)
                     {
-                        p_buf[i_buf_len] = (char)(c);
+                        p_output->p_buf[p_output->i_buf_len] = (char)(c);
 
-                        i_buf_len ++;
-                    }
-                    else
-                    {
-                        b_more = 0;
+                        p_output->i_buf_len ++;
                     }
                 }
                 else
@@ -109,127 +104,109 @@ snck_expand_do_pipe(
                 }
             }
 
-            if (p_buf)
+            if (b_result)
             {
-                if (i_buf_len && ('\n' == p_buf[i_buf_len - 1u]))
+                if ((p_output->i_buf_len) && ('\n' == p_output->p_buf[p_output->i_buf_len - 1u]))
                 {
-                    i_buf_len --;
+                    p_output->i_buf_len --;
                 }
-
-                p_buf[i_buf_len] = '\000';
-
-                i_buf_len ++;
             }
 
             pclose(p_pipe);
         }
         else
         {
-            snck_heap_realloc(p_ctxt, p_buf, 0u);
-
-            p_buf = NULL;
+            b_result = 0;
         }
     }
+    else
+    {
+        b_result = 0;
+    }
 
-    return p_buf;
+    return b_result;
 }
 
 static
-char const *
+char
 snck_expand_get(
     struct snck_ctxt const * const p_ctxt,
-    char const * p_ref)
+    struct snck_string const * const p_ref,
+    struct snck_string * const p_expand)
 {
     /* Use sh -c 'echo ...' to expand the argument */
-    static char const a_fmt[] = "PATH= echo -n %s";
-
-    char * p_buf = NULL;
+    static char const a_fmt[] = "PATH= echo -n %.*s";
 
     char * p_path;
 
-    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
+    char b_result;
+
+    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + p_ref->i_buf_len + 1);
 
     if (p_path)
     {
-        sprintf(p_path, a_fmt, p_ref);
+        sprintf(p_path, a_fmt, (int)(p_ref->i_buf_len), p_ref->p_buf);
 
-        p_buf = snck_expand_do_pipe(p_ctxt, p_path);
+        b_result = snck_expand_do_pipe(p_ctxt, p_expand, p_path);
+
+        if (b_result)
+        {
+        }
+        else
+        {
+            b_result = snck_string_copy_object(p_ctxt, p_expand, p_ref);
+        }
 
         snck_heap_realloc(p_ctxt, p_path, 0u);
     }
-
-    if (!p_buf)
+    else
     {
-        p_buf = snck_heap_realloc(p_ctxt, NULL, strlen(p_ref) + 1);
-
-        if (p_buf)
-        {
-            strcpy(p_buf, p_ref);
-        }
+        b_result = 0;
     }
 
-    return p_buf;
+    return b_result;
 
 } /* snck_expand_get() */
 
 static
-void
-snck_expand_put(
-    struct snck_ctxt const * const p_ctxt,
-    char const * p_buf)
-{
-    snck_heap_realloc(p_ctxt, (void *)(p_buf), 0u);
-
-} /* snck_expand_put() */
-
-static
-char const *
+char
 snck_expand_folder_get(
     struct snck_ctxt const * const p_ctxt,
-    char const * p_ref)
+    struct snck_string const * const p_ref,
+    struct snck_string * const p_expand)
 {
     /* Use sh -c 'echo ...' to expand the argument */
-    static char const a_fmt[] = "cd %s; pwd";
-
-    char * p_buf = NULL;
+    static char const a_fmt[] = "cd %.*s; pwd";
 
     char * p_path;
 
-    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + strlen(p_ref) + 1);
+    char b_result;
+
+    p_path = snck_heap_realloc(p_ctxt, NULL, sizeof(a_fmt) + (p_ref->i_buf_len) + 1);
 
     if (p_path)
     {
-        sprintf(p_path, a_fmt, p_ref);
+        sprintf(p_path, a_fmt, (int)(p_ref->i_buf_len), p_ref->p_buf);
 
-        p_buf = snck_expand_do_pipe(p_ctxt, p_path);
+        if (snck_expand_do_pipe(p_ctxt, p_expand, p_path))
+        {
+            b_result = 1;
+        }
+        else
+        {
+            b_result = snck_string_copy_object(p_ctxt, p_expand, p_ref);
+        }
 
         snck_heap_realloc(p_ctxt, p_path, 0u);
     }
-
-    if (!p_buf)
+    else
     {
-        p_buf = snck_heap_realloc(p_ctxt, p_buf, strlen(p_ref) + 1);
-
-        if (p_buf)
-        {
-            strcpy(p_buf, p_ref);
-        }
+        b_result = 0;
     }
 
-    return p_buf;
+    return b_result;
 
 } /* snck_expand_folder_get() */
-
-static
-void
-snck_expand_folder_put(
-    struct snck_ctxt const * const p_ctxt,
-    char const * p_buf)
-{
-    snck_heap_realloc(p_ctxt, (void *)(p_buf), 0u);
-
-} /* snck_expand_folder_put() */
-
 
 static
 char
@@ -241,24 +218,30 @@ snck_builtin_cd(
 
     int i_result;
 
-    char const * p_path_expand = NULL;
-
     struct snck_string o_path;
 
     snck_string_init(p_ctxt, &(o_path));
 
     if (p_line->p_buf[0u])
     {
-        if (0 == strcmp(p_line->p_buf, "-"))
+        static char const a_dash[] = { '-' };
+
+        static struct snck_string const o_dash = { (char *)(a_dash), sizeof(a_dash), 0u };
+
+        if (0 == snck_string_compare(p_line, &(o_dash)))
         {
             snck_string_copy_object(p_ctxt, &(o_path), &(p_ctxt->p_info->o_old_pwd));
         }
         else
         {
             /* Use sh -c 'echo ...' to expand the argument */
-            p_path_expand = snck_expand_folder_get(p_ctxt, p_line->p_buf);
-
-            snck_string_copy(p_ctxt, &(o_path), p_path_expand);
+            if (snck_expand_folder_get(p_ctxt, p_line, &(o_path)))
+            {
+            }
+            else
+            {
+                snck_string_copy(p_ctxt, &(o_path), "");
+            }
         }
     }
     else
@@ -266,21 +249,36 @@ snck_builtin_cd(
         snck_string_copy_object(p_ctxt, &(o_path), &(p_ctxt->p_info->o_home));
     }
 
-    if (o_path.p_buf)
+    if (o_path.i_buf_len)
     {
-        if (0 != strcmp(o_path.p_buf, "."))
-        {
-            i_result = chdir(o_path.p_buf);
+        static char const a_period[] = { '.' };
 
-            if (0 == i_result)
+        static struct snck_string const o_period = { (char *)(a_period), sizeof(a_period), 0u };
+
+        if (0 != snck_string_compare(&(o_path), &(o_period)))
+        {
+            char * p_path0 = snck_string_get(p_ctxt, &(o_path));
+
+            if (p_path0)
             {
-                b_result = snck_info_update_wd(p_ctxt, o_path.p_buf);
+                i_result = chdir(p_path0);
+
+                if (0 == i_result)
+                {
+                    b_result = snck_info_update_wd(p_ctxt, &(o_path));
+                }
+                else
+                {
+                    fprintf(stderr, "failure to change directory\n");
+
+                    b_result = 1;
+                }
+
+                snck_string_put(p_ctxt, p_path0);
             }
             else
             {
-                fprintf(stderr, "failure to change directory\n");
-
-                b_result = 1;
+                b_result = 0;
             }
         }
         else
@@ -293,13 +291,6 @@ snck_builtin_cd(
     {
         /* Nothing changed */
         b_result = 1;
-    }
-
-    if (p_path_expand)
-    {
-        snck_expand_folder_put(p_ctxt, p_path_expand);
-
-        p_path_expand = NULL;
     }
 
     snck_string_cleanup(p_ctxt, &(o_path));
@@ -328,22 +319,18 @@ snck_builtin_set(
 
     if (snck_token_find_next_word(p_ctxt, p_line, &(o_name), &(o_rest)))
     {
-        if (o_rest.p_buf[0u])
+        if (o_rest.i_buf_len)
         {
-            char const * p_value;
+            struct snck_string o_value;
 
-            p_value = snck_expand_get(p_ctxt, o_rest.p_buf);
+            snck_string_init(p_ctxt, &(o_value));
 
-            if (p_value)
+            if (snck_expand_get(p_ctxt, &(o_rest), &(o_value)))
             {
-                struct snck_string o_value;
-
-                snck_string_init_ref(&(o_value), p_value);
-
                 snck_env_set(p_ctxt, &(o_name), &(o_value));
-
-                snck_expand_put(p_ctxt, p_value);
             }
+
+            snck_string_cleanup(p_ctxt, &(o_value));
         }
         else
         {
@@ -536,7 +523,7 @@ snck_file_exec_line(
     {
         if (l_argc < 32u)
         {
-            l_argv[l_argc] = p_ctxt->p_opts->p_argv[i];
+            l_argv[l_argc] = (char *)(p_ctxt->p_opts->p_argv[i].p_buf);
 
             l_argc ++;
         }
@@ -548,7 +535,7 @@ snck_file_exec_line(
 
     if (p_ctxt->p_opts->b_trace)
     {
-        fprintf(stderr, "snck: exec sh -c [%s]\n", p_line->p_buf);
+        fprintf(stderr, "snck: exec sh -c [%.*s]\n", (int)(p_line->i_buf_len), p_line->p_buf);
     }
 
     if (p_ctxt->p_opts->b_dryrun)
@@ -603,8 +590,9 @@ snck_builtin_hist(
 
             if (p_history_line->o_buf.p_buf)
             {
-                fprintf(stderr, "%6d: %s\n",
+                fprintf(stderr, "%6d: %.*s\n",
                     -10+i,
+                    (int)(p_history_line->o_buf.i_buf_len),
                     p_history_line->o_buf.p_buf);
             }
 
@@ -628,24 +616,24 @@ snck_builtin_source(
 {
     char b_result;
 
-    if (p_line->p_buf[0u])
+    if (p_line->i_buf_len)
     {
-        char const * p_path;
+        struct snck_string o_path;
 
-        p_path = snck_expand_get(p_ctxt, p_line->p_buf);
+        snck_string_init(p_ctxt, &(o_path));
 
-        if (p_path)
+        if (snck_expand_get(p_ctxt, p_line, &(o_path)))
         {
-            if (snck_file_read(p_ctxt, p_path))
+            if (snck_file_read(p_ctxt, &(o_path)))
             {
             }
             else
             {
                 fprintf(stderr, "snck: error opening file\n");
             }
-
-            snck_expand_put(p_ctxt, p_path);
         }
+
+        snck_string_cleanup(p_ctxt, &(o_path));
     }
     else
     {
@@ -689,27 +677,44 @@ snck_builtin_edit(
 
     static struct snck_string o_name_editor = { (char *)(a_name_editor), sizeof(a_name_editor), 0u };
 
-    char const * p_editor;
+    char * p_editor0;
+
+    char * p_line0;
 
     snck_string_init(p_ctxt, &(o_value_editor));
 
     if (snck_env_get(p_ctxt, &(o_name_editor), &(o_value_editor)))
     {
-        p_editor = o_value_editor.p_buf;
     }
     else
     {
-        p_editor = "vi";
+        static char const a_default_editor[] = { 'v', 'i' };
+
+        snck_string_ref_buffer(p_ctxt, &(o_value_editor), a_default_editor, sizeof(a_default_editor));
     }
 
-    l_argv[0u] = (char *)(p_editor);
+    p_editor0 = snck_string_get(p_ctxt, &(o_value_editor));
 
-    l_argv[1u] = (char *)(p_line->p_buf);
+    if (p_editor0)
+    {
+        p_line0 = snck_string_get(p_ctxt, p_line);
 
-    l_argv[2u] = NULL;
+        if (p_line0)
+        {
+            l_argv[0u] = (char *)(p_editor0);
 
-    /* execute the command */
-    b_result = snck_wrap_exec(p_ctxt, l_argv);
+            l_argv[1u] = (char *)(p_line0);
+
+            l_argv[2u] = NULL;
+
+            /* execute the command */
+            b_result = snck_wrap_exec(p_ctxt, l_argv);
+
+            snck_string_put(p_ctxt, p_line0);
+        }
+
+        snck_string_put(p_ctxt, p_editor0);
+    }
 
     snck_string_cleanup(p_ctxt, &(o_value_editor));
 
@@ -731,6 +736,14 @@ snck_file_decode_line(
     snck_string_init(p_ctxt, &(o_cmd));
 
     snck_string_init(p_ctxt, &(o_args));
+
+#if defined(SNCK_DBG)
+    {
+        fprintf(stderr, "dbg: decode line [%.*s]\n",
+            (int)(p_line->i_buf_len),
+            p_line->p_buf);
+    }
+#endif /* #if defined(SNCK_DBG) */
 
     if (snck_token_find_next_word(p_ctxt, p_line, &(o_cmd), &(o_args)))
     {
@@ -765,6 +778,18 @@ snck_file_decode_line(
         static struct snck_string const o_name_exit = { (char *)(a_name_exit), sizeof(a_name_exit), 0u };
 
         static struct snck_string const o_name_logout = { (char *)(a_name_logout), sizeof(a_name_logout), 0u };
+
+#if defined(SNCK_DBG)
+        {
+            fprintf(stderr, "dbg: command word is [%.*s]\n",
+                (int)(o_cmd.i_buf_len),
+                o_cmd.p_buf);
+
+            fprintf(stderr, "dbg: command args is [%.*s]\n",
+                (int)(o_args.i_buf_len),
+                o_args.p_buf);
+        }
+#endif /* #if defined(SNCK_DBG) */
 
         if (0 == o_cmd.i_buf_len)
         {
@@ -814,101 +839,96 @@ snck_file_decode_line(
 
             int i_stat_result;
 
-            struct snck_string o_cmd_sz;
+            char * p_cmd_expanded0;
 
-            char const * p_cmd_expanded;
+            struct snck_string o_cmd_expanded;
 
-            snck_string_init(p_ctxt, &(o_cmd_sz));
+            snck_string_init(p_ctxt, &(o_cmd_expanded));
 
-            snck_string_copy_object(p_ctxt, &(o_cmd_sz), &(o_cmd));
-
-            p_cmd_expanded = snck_expand_get(p_ctxt, o_cmd_sz.p_buf);
-
-            b_result = 1;
-
-            if (p_cmd_expanded)
+            if (snck_expand_get(p_ctxt, &(o_cmd), &(o_cmd_expanded)))
             {
-                char b_cmd_type;
+                p_cmd_expanded0 = snck_string_get(p_ctxt, &(o_cmd_expanded));
 
-                struct snck_string o_cmd_expanded;
-
-                snck_string_init_ref(&(o_cmd_expanded), p_cmd_expanded);
-
-                b_cmd_type = 0;
-
-                i_stat_result = stat(p_cmd_expanded, &(o_stat_info));
-
-                if (0 == i_stat_result)
+                if (p_cmd_expanded0)
                 {
-                    if (S_ISDIR(o_stat_info.st_mode))
+                    char b_cmd_type;
+
+                    b_cmd_type = 0;
+
+                    i_stat_result = stat(p_cmd_expanded0, &(o_stat_info));
+
+                    if (0 == i_stat_result)
                     {
-                        b_cmd_type = 1;
-                    }
-                    else if (S_ISREG(o_stat_info.st_mode))
-                    {
-                        if ((S_IXUSR|S_IXGRP|S_IXOTH) & o_stat_info.st_mode)
+                        if (S_ISDIR(o_stat_info.st_mode))
                         {
-                            /* Executable */
+                            b_cmd_type = 1;
                         }
-                        else if ((S_IRUSR|S_IRGRP|S_IROTH) & o_stat_info.st_mode)
+                        else if (S_ISREG(o_stat_info.st_mode))
                         {
-                            /* Detect file name extension */
-
-                            /* Special case for jpg */
-
-                            /* Launch editor */
-                            if (o_stat_info.st_size < (off_t)(1024ul * 1024ul))
+                            if ((S_IXUSR|S_IXGRP|S_IXOTH) & o_stat_info.st_mode)
                             {
-                                b_cmd_type = 2;
+                                /* Executable */
+                            }
+                            else if ((S_IRUSR|S_IRGRP|S_IROTH) & o_stat_info.st_mode)
+                            {
+                                /* Detect file name extension */
+
+                                /* Special case for jpg */
+
+                                /* Launch editor */
+                                if (o_stat_info.st_size < (off_t)(1024ul * 1024ul))
+                                {
+                                    b_cmd_type = 2;
+                                }
+                                else
+                                {
+                                    fprintf(stderr, "snck: file too big to edit\n");
+
+                                    b_cmd_type = 3;
+                                }
                             }
                             else
                             {
-                                fprintf(stderr, "snck: file too big to edit\n");
+                                fprintf(stderr, "snck: unsupported mode\n");
 
                                 b_cmd_type = 3;
                             }
                         }
                         else
                         {
-                            fprintf(stderr, "snck: unsupported mode\n");
+                            fprintf(stderr, "snck: special file\n");
 
                             b_cmd_type = 3;
                         }
                     }
+
+                    if (0 == b_cmd_type)
+                    {
+                        b_result = snck_file_exec_line(p_ctxt, p_line);
+                    }
+                    else if (1 == b_cmd_type)
+                    {
+                        b_result = snck_builtin_cd(p_ctxt, &(o_cmd_expanded));
+                    }
+                    else if (2 == b_cmd_type)
+                    {
+                        b_result = snck_builtin_edit(p_ctxt, &(o_cmd_expanded));
+                    }
                     else
                     {
-                        fprintf(stderr, "snck: special file\n");
-
-                        b_cmd_type = 3;
                     }
-                }
 
-                if (0 == b_cmd_type)
-                {
-                    b_result = snck_file_exec_line(p_ctxt, p_line);
+                    snck_string_put(p_ctxt, p_cmd_expanded0);
                 }
-                else if (1 == b_cmd_type)
-                {
-                    b_result = snck_builtin_cd(p_ctxt, &(o_cmd_expanded));
-                }
-                else if (2 == b_cmd_type)
-                {
-                    b_result = snck_builtin_edit(p_ctxt, &(o_cmd_expanded));
-                }
-                else
-                {
-                }
-
-                snck_string_cleanup(p_ctxt, &(o_cmd_expanded));
-
-                snck_expand_put(p_ctxt, p_cmd_expanded);
             }
             else
             {
                 fprintf(stderr, "snck: unable to expand cmd name\n");
             }
 
-            snck_string_cleanup(p_ctxt, &(o_cmd_sz));
+            snck_string_cleanup(p_ctxt, &(o_cmd_expanded));
+
+            b_result = 1;
         }
     }
     else
@@ -937,7 +957,7 @@ char
 snck_file_read(
     struct snck_ctxt const * const
         p_ctxt,
-    char const * const
+    struct snck_string const * const
         p_name)
 {
     char b_result = 1;
@@ -946,9 +966,35 @@ snck_file_read(
 
     FILE * p_file;
 
+#if defined(SNCK_DBG)
+    {
+        if (p_name)
+        {
+            fprintf(stderr, "dbg: snck_file read [%.*s]\n",
+                (int)(p_name->i_buf_len),
+                p_name->p_buf);
+        }
+        else
+        {
+            fprintf(stderr, "dbg: snck_file read stdin\n");
+        }
+    }
+#endif /* #if defined(SNCK_DBG) */
+
     if (p_name)
     {
-        p_file = fopen(p_name, "r");
+        char * p_name0 = snck_string_get(p_ctxt, p_name);
+
+        if (p_name0)
+        {
+            p_file = fopen(p_name0, "r");
+
+            snck_string_put(p_ctxt, p_name0);
+        }
+        else
+        {
+            p_file = NULL;
+        }
     }
     else
     {
@@ -1026,6 +1072,12 @@ snck_file_read(
     }
     else
     {
+#if defined(SNCK_DBG)
+        {
+            fprintf(stderr, "dbg: snck_file error opening file\n");
+        }
+#endif /* #if defined(SNCK_DBG) */
+
         b_result = 0;
     }
 

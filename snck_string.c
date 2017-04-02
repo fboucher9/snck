@@ -199,7 +199,14 @@ snck_string_resize(
 
             if (p_new && p_string->p_buf)
             {
-                memcpy(p_new, p_string->p_buf, p_string->i_buf_len);
+                if (p_string->i_buf_len <= i_alloc_len)
+                {
+                    memcpy(p_new, p_string->p_buf, p_string->i_buf_len);
+                }
+                else
+                {
+                    memcpy(p_new, p_string->p_buf, i_alloc_len);
+                }
             }
 
             if (p_new || !i_alloc_len)
@@ -372,5 +379,38 @@ snck_string_compare(
     return i_result;
 
 } /* snck_string_compare() */
+
+char *
+snck_string_get(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string const * const
+        p_string)
+{
+    char * p_buf;
+
+    p_buf = snck_heap_realloc(p_ctxt, NULL, p_string->i_buf_len + 1u);
+
+    if (p_buf)
+    {
+        memcpy(p_buf, p_string->p_buf, p_string->i_buf_len);
+
+        p_buf[p_string->i_buf_len] = '\000';
+    }
+
+    return p_buf;
+
+} /* snck_string_get() */
+
+void
+snck_string_put(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char * const
+        p_buf)
+{
+    snck_heap_realloc(p_ctxt, p_buf, 0u);
+
+} /* snck_string_put() */
 
 /* end-of-file: snck_string.c */

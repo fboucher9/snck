@@ -130,10 +130,10 @@ char
 snck_main_init(
     struct snck_main_ctxt * const
         p_main,
-    unsigned int const
-        i_argc,
-    char * * const
-        p_argv)
+    struct snck_string const * const
+        p_arg_list,
+    size_t const
+        i_arg_count)
 {
     char b_result;
 
@@ -167,7 +167,39 @@ snck_main_init(
 
             snck_history_init(p_ctxt);
 
-            snck_opts_init(p_ctxt, i_argc, p_argv);
+            snck_opts_init(p_ctxt, p_arg_list, i_arg_count);
+
+#if defined(SNCK_DBG) /* debug */
+            {
+                /* Debug of options */
+                fprintf(stderr, "dbg: snck_opts flags = %cl %cc %cs %cx %ci %cn\n",
+                    p_ctxt->p_opts->b_login ? '-' : '+',
+                    p_ctxt->p_opts->b_command ? '-' : '+',
+                    p_ctxt->p_opts->b_input ? '-' : '+',
+                    p_ctxt->p_opts->b_trace ? '-' : '+',
+                    p_ctxt->p_opts->b_interact ? '-' : '+',
+                    p_ctxt->p_opts->b_dryrun ? '-' : '+');
+
+                if (p_ctxt->p_opts->p_script)
+                {
+                    fprintf(stderr, "dbg: snck_opts script = [%.*s]\n",
+                        (int)(p_ctxt->p_opts->p_script->i_buf_len),
+                        p_ctxt->p_opts->p_script->p_buf);
+                }
+
+                {
+                    size_t i;
+
+                    for (i=0u; i<p_ctxt->p_opts->i_argc; i++)
+                    {
+                        fprintf(stderr, "dbg: snck_opts arg [%u] = [%.*s]\n",
+                            (unsigned int)(i),
+                            (int)(p_ctxt->p_opts->p_argv[i].i_buf_len),
+                            p_ctxt->p_opts->p_argv[i].p_buf);
+                    }
+                }
+            }
+#endif /* debug */
 
             b_result = 1;
         }
@@ -222,13 +254,109 @@ snck_main_login(
 
     snck_string_copy_object(p_ctxt, &(o_login_script), &(p_ctxt->p_info->o_home));
 
-    snck_string_append(p_ctxt, &(o_login_script), "/.snckrc");
+    {
+        static char const a_login_suffix[] = { '/', '.', 's', 'n', 'c', 'k', 'r', 'c' };
 
-    snck_file_read(p_ctxt, o_login_script.p_buf);
+        snck_string_append_buffer(p_ctxt, &(o_login_script), a_login_suffix, sizeof(a_login_suffix));
+    }
+
+    snck_file_read(p_ctxt, &(o_login_script));
 
     snck_string_cleanup(p_ctxt, &(o_login_script));
 
 } /* snck_main_login() */
+
+static
+char
+snck_main_exec_command(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    char b_result;
+
+    char * * l_argv;
+
+    struct snck_opts const * const p_opts =
+        p_ctxt->p_opts;
+
+    /* Allocate an array of arguments */
+    l_argv = (char * *)(snck_heap_realloc(p_ctxt, NULL, sizeof(char *) * (4 + p_opts->i_argc)));
+
+    if (l_argv)
+    {
+        l_argv[0u] = (char *)("/bin/sh");
+
+        l_argv[1u] = (char *)("-c");
+
+        l_argv[2u] = (char *)(snck_string_get(p_ctxt, p_opts->p_script));
+
+        if (p_opts->i_argc)
+        {
+            unsigned int argi;
+
+            for (argi = 0u; argi < p_opts->i_argc; argi ++)
+            {
+                l_argv[3u + argi] = (char *)(snck_string_get(p_ctxt, p_opts->p_argv + argi));
+            }
+        }
+
+        l_argv[3u + p_opts->i_argc] = NULL;
+
+        execvp(l_argv[0u], l_argv);
+
+        {
+            unsigned int argi;
+
+            for (argi = 2u; argi < 4 + p_opts->i_argc; argi ++)
+            {
+                if (l_argv[argi])
+                {
+                    snck_string_put(p_ctxt, l_argv[argi]);
+                }
+            }
+        }
+
+        snck_heap_realloc(p_ctxt, (void *)(l_argv), 0u);
+    }
+
+    b_result = 0;
+
+    return b_result;
+
+} /* snck_main_exec_command() */
+
+static
+char
+snck_main_dispatch(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    char b_result;
+
+    struct snck_opts const * const p_opts =
+        p_ctxt->p_opts;
+
+    if (p_opts->b_login)
+    {
+        snck_main_login(p_ctxt);
+    }
+
+    if (p_opts->b_command)
+    {
+        b_result = snck_main_exec_command(p_ctxt);
+    }
+    else if (p_opts->p_script)
+    {
+        b_result = snck_file_read(p_ctxt, p_opts->p_script);
+    }
+    else
+    {
+        b_result = snck_file_read(p_ctxt, NULL);
+    }
+
+    return b_result;
+
+} /* snck_main_dispatch() */
 
 /*
 
@@ -239,8 +367,10 @@ Description:
 */
 int
 snck_main(
-    unsigned int i_argc,
-    char * * p_argv)
+    struct snck_string const * const
+        p_arg_list,
+    size_t const
+        i_arg_count)
 {
     /* read commands from stdin */
     int i_exit_status;
@@ -248,64 +378,18 @@ snck_main(
     struct snck_main_ctxt * const p_main =
         &(o_main_ctxt);
 
-    if (snck_main_init(p_main, i_argc, p_argv))
+    if (snck_main_init(p_main, p_arg_list, i_arg_count))
     {
         struct snck_ctxt const * const p_ctxt =
             &(p_main->o_ctxt);
 
-        struct snck_opts const * const p_opts =
-            p_ctxt->p_opts;
-
-        if (p_opts->b_login)
+        if (snck_main_dispatch(p_ctxt))
         {
-            snck_main_login(p_ctxt);
-        }
-
-        if (p_opts->b_command)
-        {
-            /* Allocate an array of arguments */
-
-            char * * l_argv;
-
-            l_argv = (char * *)(snck_heap_realloc(p_ctxt, NULL, sizeof(char *) * (4 + p_opts->i_argc)));
-
-            if (l_argv)
-            {
-                l_argv[0u] = (char *)("/bin/sh");
-
-                l_argv[1u] = (char *)("-c");
-
-                l_argv[2u] = (char *)(p_opts->p_script);
-
-                if (p_opts->i_argc)
-                {
-                    unsigned int argi;
-
-                    for (argi = 0u; argi < p_opts->i_argc; argi ++)
-                    {
-                        l_argv[3u + argi] = p_opts->p_argv[argi];
-                    }
-                }
-
-                l_argv[3u + p_opts->i_argc] = NULL;
-
-                execvp(l_argv[0u], l_argv);
-
-                snck_heap_realloc(p_ctxt, (void *)(l_argv), 0u);
-            }
-
-            i_exit_status = 1;
+            i_exit_status = 0;
         }
         else
         {
-            if (snck_file_read(p_ctxt, p_opts->p_script))
-            {
-                i_exit_status = 0;
-            }
-            else
-            {
-                i_exit_status = 1;
-            }
+            i_exit_status = 1;
         }
 
         snck_main_cleanup(p_main);

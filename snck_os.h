@@ -6,6 +6,13 @@ Module: snck_os.h
 
 Description:
 
+    OS-specific headers.
+
+Notes:
+
+    -   This file is used as a precompiled header file.  Please include
+        only system headers or headers from external libraries.
+
 */
 
 /* Reverse include guard */

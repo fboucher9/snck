@@ -179,4 +179,18 @@ snck_string_compare(
     struct snck_string const * const
         p_ref2);
 
+char *
+snck_string_get(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_string const * const
+        p_string);
+
+void
+snck_string_put(
+    struct snck_ctxt const * const
+        p_ctxt,
+    char * const
+        p_buf);
+
 /* end-of-file: snck_string.h */

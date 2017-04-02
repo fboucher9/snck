@@ -41,30 +41,26 @@ snck_env_get(
 
     char b_result;
 
-    char * p_temp_name;
+    char * p_name0;
 
-    char * p_temp_value;
+    p_name0 = snck_string_get(p_ctxt, p_name);
 
-    p_temp_name = (char *)(snck_heap_realloc(p_ctxt, NULL, p_name->i_buf_len + 1u));
-
-    if (p_temp_name)
+    if (p_name0)
     {
-        memcpy(p_temp_name, p_name->p_buf, p_name->i_buf_len);
+        char * p_value0;
 
-        p_temp_name[p_name->i_buf_len] = '\000';
+        p_value0 = getenv(p_name0);
 
-        p_temp_value = getenv(p_temp_name);
-
-        if (p_temp_value)
+        if (p_value0)
         {
-            b_result = snck_string_copy(p_ctxt, p_value, p_temp_value);
+            b_result = snck_string_copy(p_ctxt, p_value, p_value0);
         }
         else
         {
             b_result = 0;
         }
 
-        snck_heap_realloc(p_ctxt, p_temp_name, 0u);
+        snck_string_put(p_ctxt, p_name0);
     }
     else
     {
@@ -86,29 +82,21 @@ snck_env_set(
 {
     char b_result;
 
-    char * p_temp_name;
+    char * p_name0;
 
-    char * p_temp_value;
+    p_name0 = snck_string_get(p_ctxt, p_name);
 
-    p_temp_name = (char *)(snck_heap_realloc(p_ctxt, NULL, p_name->i_buf_len + 1u));
-
-    if (p_temp_name)
+    if (p_name0)
     {
-        memcpy(p_temp_name, p_name->p_buf, p_name->i_buf_len);
-
-        p_temp_name[p_name->i_buf_len] = '\000';
-
         if (p_value)
         {
-            p_temp_value = (char *)(snck_heap_realloc(p_ctxt, NULL, p_value->i_buf_len + 1u));
+            char * p_value0;
 
-            if (p_temp_value)
+            p_value0 = snck_string_get(p_ctxt, p_value);
+
+            if (p_value0)
             {
-                memcpy(p_temp_value, p_value->p_buf, p_value->i_buf_len);
-
-                p_temp_value[p_value->i_buf_len] = '\000';
-
-                if (0 == setenv(p_temp_name, p_temp_value, 1))
+                if (0 == setenv(p_name0, p_value0, 1))
                 {
                     b_result = 1;
                 }
@@ -117,7 +105,7 @@ snck_env_set(
                     b_result = 0;
                 }
 
-                snck_heap_realloc(p_ctxt, p_temp_value, 0u);
+                snck_string_put(p_ctxt, p_value0);
             }
             else
             {
@@ -126,7 +114,7 @@ snck_env_set(
         }
         else
         {
-            if (0 == unsetenv(p_temp_name))
+            if (0 == unsetenv(p_name0))
             {
                 b_result = 1;
             }
@@ -136,7 +124,7 @@ snck_env_set(
             }
         }
 
-        snck_heap_realloc(p_ctxt, p_temp_name, 0u);
+        snck_string_put(p_ctxt, p_name0);
     }
     else
     {

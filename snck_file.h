@@ -20,13 +20,16 @@ Description:
 /* Predefine context handle */
 struct snck_ctxt;
 
+/* Predefine string handle */
+struct snck_string;
+
 /* --- Interface --- */
 
 char
 snck_file_read(
     struct snck_ctxt const * const
         p_ctxt,
-    char const * const
+    struct snck_string const * const
         p_name);
 
 /* end-of-file: snck_file.h */
