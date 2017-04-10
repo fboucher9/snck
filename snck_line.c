@@ -712,7 +712,7 @@ snck_completion(
                             sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s%s",
                                 (unsigned int)(1u),
                                 (unsigned int)(i_history_index),
-                                pos,
+                                (int)(pos),
                                 buf,
                                 p_history_line->o_buf.p_buf + i_len,
                                 buf + pos);

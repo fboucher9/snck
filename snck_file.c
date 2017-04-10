@@ -341,7 +341,7 @@ snck_builtin_set(
 
             if (snck_env_get(p_ctxt, &(o_name), &(o_value)))
             {
-                fprintf(stdout, "%.*s\n", o_value.i_buf_len, o_value.p_buf);
+                fprintf(stdout, "%.*s\n", (int)(o_value.i_buf_len), o_value.p_buf);
             }
             else
             {
@@ -590,8 +590,9 @@ snck_builtin_hist(
 
             if (p_history_line->o_buf.p_buf)
             {
-                fprintf(stderr, "%6d: %.*s\n",
+                fprintf(stderr, "%6d: len=%d, buf=[%.*s]\n",
                     -10+i,
+                    (int)(p_history_line->o_buf.i_buf_len),
                     (int)(p_history_line->o_buf.i_buf_len),
                     p_history_line->o_buf.p_buf);
             }

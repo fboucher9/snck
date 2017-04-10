@@ -400,7 +400,9 @@ snck_history_save(
         {
             struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
 
-            fprintf(p_file, "%s\n", p_history_line->o_buf.p_buf);
+            fprintf(p_file, "%.*s\n",
+                (int)(p_history_line->o_buf.i_buf_len),
+                p_history_line->o_buf.p_buf);
 
             p_it = p_it->p_next;
         }
