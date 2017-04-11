@@ -488,6 +488,8 @@ snck_file_exec_line(
 {
     char b_result;
 
+    char b_argv_put[32u];
+
     char * l_argv[32u];
 
     unsigned int l_argc;
@@ -498,9 +500,13 @@ snck_file_exec_line(
 
     l_argv[l_argc] = "/bin/sh";
 
+    b_argv_put[l_argc] = 0;
+
     l_argc ++;
 
     l_argv[l_argc] = "-c";
+
+    b_argv_put[l_argc] = 0;
 
     l_argc ++;
 
@@ -508,14 +514,20 @@ snck_file_exec_line(
     {
         l_argv[l_argc] = "-x";
 
+        b_argv_put[l_argc] = 0;
+
         l_argc ++;
     }
 
-    l_argv[l_argc] = (char *)(p_line->p_buf);
+    l_argv[l_argc] = snck_string_get(p_ctxt, p_line);
+
+    b_argv_put[l_argc] = 1;
 
     l_argc ++;
 
     l_argv[l_argc] = "sh";
+
+    b_argv_put[l_argc] = 0;
 
     l_argc ++;
 
@@ -523,13 +535,17 @@ snck_file_exec_line(
     {
         if (l_argc < 32u)
         {
-            l_argv[l_argc] = (char *)(p_ctxt->p_opts->p_argv[i].p_buf);
+            l_argv[l_argc] = snck_string_get(p_ctxt, p_ctxt->p_opts->p_argv + i);
+
+            b_argv_put[l_argc] = 1;
 
             l_argc ++;
         }
     }
 
     l_argv[l_argc] = NULL;
+
+    b_argv_put[l_argc] = 0;
 
     l_argc ++;
 
@@ -547,6 +563,17 @@ snck_file_exec_line(
     else
     {
         b_result = snck_wrap_exec(p_ctxt, l_argv);
+    }
+
+    for (i=0u; i<l_argc; i++)
+    {
+        if (b_argv_put[i])
+        {
+            if (l_argv[i])
+            {
+                snck_string_put(p_ctxt, l_argv[i]);
+            }
+        }
     }
 
     return b_result;
