@@ -725,6 +725,8 @@ snck_completion(
                                 p_history_line->o_buf.p_buf + i_len,
                                 buf + pos);
 
+                            p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
+
                             b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
                         }
                         else
