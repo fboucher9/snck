@@ -251,13 +251,11 @@ snck_string_copy_buffer(
 {
     char b_result;
 
-    b_result = snck_string_resize(p_ctxt, p_string, i_buf_len + 1u);
+    b_result = snck_string_resize(p_ctxt, p_string, i_buf_len);
 
     if (b_result)
     {
         memcpy(p_string->p_buf, p_buf, i_buf_len);
-
-        p_string->p_buf[i_buf_len] = '\000';
 
         p_string->i_buf_len = i_buf_len;
     }
@@ -294,13 +292,11 @@ snck_string_append_buffer(
 {
     char b_result;
 
-    b_result = snck_string_resize(p_ctxt, p_string, p_string->i_buf_len + i_buf_len + 1u);
+    b_result = snck_string_resize(p_ctxt, p_string, p_string->i_buf_len + i_buf_len);
 
     if (b_result)
     {
         memcpy(p_string->p_buf + p_string->i_buf_len, p_buf, i_buf_len);
-
-        p_string->p_buf[p_string->i_buf_len + i_buf_len] = '\000';
 
         p_string->i_buf_len += i_buf_len;
     }
