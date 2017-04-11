@@ -219,17 +219,27 @@ snck_suggest_list_add(
             (struct snck_suggest_node *)(
                 p_it);
 
-        int const i_duplicate =
-            strcmp(
-                p_suggest_node->o_buf.p_buf + 16u,
-                p_suggest_temp->o_buf.p_buf + 16u);
+        struct snck_string o_ref1;
+
+        struct snck_string o_ref2;
+
+        int i_duplicate;
+
+        snck_string_init_ref_buffer(&(o_ref1), p_suggest_node->o_buf.p_buf + 16u, p_suggest_node->o_buf.i_buf_len - 16u);
+
+        snck_string_init_ref_buffer(&(o_ref2), p_suggest_temp->o_buf.p_buf + 16u, p_suggest_temp->o_buf.i_buf_len - 16u);
+
+        i_duplicate =
+            snck_string_compare(
+                &(o_ref1),
+                &(o_ref2));
 
         if (0 == i_duplicate)
         {
             int const i_compare =
-                strcmp(
-                    p_suggest_node->o_buf.p_buf,
-                    p_suggest_temp->o_buf.p_buf);
+                snck_string_compare(
+                    &(p_suggest_node->o_buf),
+                    &(p_suggest_temp->o_buf));
 
             if (0 > i_compare)
             {
@@ -258,9 +268,9 @@ snck_suggest_list_add(
 
         {
             int const i_compare =
-                strcmp(
-                    p_suggest_node->o_buf.p_buf,
-                    p_suggest_temp->o_buf.p_buf);
+                snck_string_compare(
+                    &(p_suggest_node->o_buf),
+                    &(p_suggest_temp->o_buf));
 
             if (0 == i_compare)
             {
@@ -363,19 +373,18 @@ snck_line_cleanup(
 static
 int
 snck_fuzzy_compare(
-    char const * p_ref1,
-    char const * p_ref2,
-    int const i_ref2_len)
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2)
 {
     int i_result;
 
-    int i_ref1;
+    size_t i_ref1;
 
-    int i_ref2;
+    size_t i_ref2;
 
-    int i_ref1_len;
-
-    if (i_ref2_len >= 1)
+    if (p_ref2->i_buf_len >= 1)
     {
         i_result = 0;
 
@@ -383,13 +392,11 @@ snck_fuzzy_compare(
 
         i_ref2 = 0;
 
-        i_ref1_len = (int)(strlen(p_ref1));
-
         /* try to find each letter of p_ref2[0:i_ref2_len-1] within p_ref1 */
-        while ((i_ref1 < i_ref1_len) && (i_ref2 < i_ref2_len))
+        while ((i_ref1 < p_ref1->i_buf_len) && (i_ref2 < p_ref2->i_buf_len))
         {
             /* Look for a letter */
-            if (p_ref1[i_ref1] == p_ref2[i_ref2])
+            if (p_ref1->p_buf[i_ref1] == p_ref2->p_buf[i_ref2])
             {
                 i_ref1 ++;
                 i_ref2 ++;
@@ -400,21 +407,14 @@ snck_fuzzy_compare(
             }
         }
 
-        if (i_ref2 >= i_ref2_len)
+        if (i_ref2 >= p_ref2->i_buf_len)
         {
             i_result = i_ref1;
         }
     }
     else
     {
-        if (0 == strncmp(p_ref1, p_ref2, i_ref2_len))
-        {
-            i_result = 1;
-        }
-        else
-        {
-            i_result = 0;
-        }
+        i_result = 1;
     }
 
     return i_result;
@@ -439,7 +439,11 @@ snck_suggest_from_history_line(
 {
     int i_score;
 
-    i_score = snck_fuzzy_compare(p_history_line->o_buf.p_buf, p_wild_buf, i_wild_buf_len);
+    struct snck_string o_wild;
+
+    snck_string_init_ref_buffer(&(o_wild), p_wild_buf, i_wild_buf_len);
+
+    i_score = snck_fuzzy_compare(&(p_history_line->o_buf), &(o_wild));
 
     if (0 != i_score)
     {
@@ -453,10 +457,13 @@ snck_suggest_from_history_line(
 
             if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), p_history_line->o_buf.i_buf_len + 16u + 1u))
             {
-                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s",
+                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s",
                     (unsigned int)(i_score),
                     (unsigned int)(i_history_index),
+                    (int)(p_history_line->o_buf.i_buf_len),
                     p_history_line->o_buf.p_buf);
+
+                p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
 
                 b_consumed = snck_suggest_list_add(p_ctxt, p_suggest_list, p_suggest_node);
             }
@@ -709,11 +716,12 @@ snck_completion(
 
                         if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + p_history_line->o_buf.i_buf_len - i_len + 16u + 1u))
                         {
-                            sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s%s",
+                            sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%.*s%s",
                                 (unsigned int)(1u),
                                 (unsigned int)(i_history_index),
                                 (int)(pos),
                                 buf,
+                                (int)(p_history_line->o_buf.i_buf_len - i_len),
                                 p_history_line->o_buf.p_buf + i_len,
                                 buf + pos);
 
@@ -800,7 +808,15 @@ snck_completion(
                                     {
                                         int i_score;
 
-                                        i_score = snck_fuzzy_compare(p_dir_entry->d_name, buf + pos1, pos - pos1);
+                                        struct snck_string o_dir_entry;
+
+                                        struct snck_string o_wild;
+
+                                        snck_string_init_ref(&(o_dir_entry), p_dir_entry->d_name);
+
+                                        snck_string_init_ref_buffer(&(o_wild), buf + pos1, pos - pos1);
+
+                                        i_score = snck_fuzzy_compare(&(o_dir_entry), &(o_wild));
 
                                         if (0 != i_score)
                                         {
@@ -859,7 +875,13 @@ snck_completion(
         {
             DIR * d;
 
-            d = opendir(o_folder.p_buf);
+            char * p_folder0;
+
+            p_folder0 = snck_string_get(p_ctxt, &(o_folder));
+
+            d = opendir(p_folder0);
+
+            snck_string_put(p_ctxt, p_folder0);
 
             if (d)
             {
@@ -872,12 +894,20 @@ snck_completion(
                     {
                         int i_score;
 
+                        struct snck_string o_dir_entry;
+
+                        struct snck_string o_wild;
+
+                        snck_string_init_ref(&(o_dir_entry), e->d_name);
+
+                        snck_string_init_ref_buffer(&(o_wild), buf + pos1, pos - pos1);
+
                         i_score = 0;
 
                         if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
                         {
                         }
-                        else if (0 != (i_score = snck_fuzzy_compare(e->d_name, buf + pos1, pos - pos1)))
+                        else if (0 != (i_score = snck_fuzzy_compare(&(o_dir_entry), &(o_wild))))
                         {
                             if (!b_cmd_is_cd || (DT_DIR == e->d_type))
                             {
@@ -908,6 +938,8 @@ snck_completion(
                                                 (unsigned int)(0u),
                                                 e->d_name);
                                         }
+
+                                        p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
 
                                         b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
                                     }
@@ -947,7 +979,14 @@ snck_completion(
 
                 if (p_suggest_temp->o_buf.p_buf)
                 {
-                    linenoiseAddCompletion(lc, p_suggest_temp->o_buf.p_buf + 16u);
+                    char * p_buf0 = snck_string_get(p_ctxt, &(p_suggest_temp->o_buf));
+
+                    if (p_buf0)
+                    {
+                        linenoiseAddCompletion(lc, p_buf0 + 16u);
+
+                        snck_string_put(p_ctxt, p_buf0);
+                    }
                 }
 
                 p_it = p_it->p_next;
