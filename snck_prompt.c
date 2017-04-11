@@ -249,7 +249,7 @@ snck_prompt_detect_env(
 
     struct snck_string o_name;
 
-    static char a_ps1_ref[] = { 'P', 'S', '1' };
+    static char a_ps1_ref[] = { 'P', 'R', 'O', 'M', 'P', 'T' };
 
     snck_string_init_ref_buffer(&(o_name), a_ps1_ref, sizeof(a_ps1_ref));
 
