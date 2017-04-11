@@ -157,6 +157,8 @@ snck_info_detect_host(
         if (0 == gethostname(p_info->o_host.p_buf, 255u))
         {
             p_info->o_host.i_buf_len = strlen(p_info->o_host.p_buf);
+
+            snck_string_lower(&(p_info->o_host));
         }
         else
         {
