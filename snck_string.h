@@ -193,4 +193,14 @@ snck_string_put(
     char * const
         p_buf);
 
+void
+snck_string_lower(
+    struct snck_string * const
+        p_string);
+
+void
+snck_string_upper(
+    struct snck_string * const
+        p_string);
+
 /* end-of-file: snck_string.h */

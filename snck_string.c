@@ -409,4 +409,52 @@ snck_string_put(
 
 } /* snck_string_put() */
 
+void
+snck_string_lower(
+    struct snck_string * const
+        p_string)
+{
+    size_t i;
+
+    i = 0u;
+
+    while (i < p_string->i_buf_len)
+    {
+        if ((p_string->p_buf[i] >= 'A')
+            && (p_string->p_buf[i] <= 'Z'))
+        {
+            p_string->p_buf[i] =
+                (char)(
+                    p_string->p_buf[i] + ('a' - 'A'));
+        }
+
+        i++;
+    }
+
+} /* snck_string_lower() */
+
+void
+snck_string_upper(
+    struct snck_string * const
+        p_string)
+{
+    size_t i;
+
+    i = 0u;
+
+    while (i < p_string->i_buf_len)
+    {
+        if ((p_string->p_buf[i] >= 'a')
+            && (p_string->p_buf[i] <= 'z'))
+        {
+            p_string->p_buf[i] =
+                (char)(
+                    p_string->p_buf[i] + ('A' - 'a'));
+        }
+
+        i++;
+    }
+
+} /* snck_string_upper() */
+
 /* end-of-file: snck_string.c */
