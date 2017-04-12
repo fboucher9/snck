@@ -106,8 +106,6 @@ snck_prompt_pass1(
         }
     }
 
-    i_out_len ++;
-
     return i_out_len;
 }
 
@@ -226,10 +224,6 @@ snck_prompt_pass2(
             p_out->i_buf_len ++;
         }
     }
-
-    p_out->p_buf[p_out->i_buf_len] = '\000';
-
-    p_out->i_buf_len ++;
 
     b_result = 1;
 

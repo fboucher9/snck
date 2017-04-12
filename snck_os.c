@@ -66,6 +66,8 @@ snck_os_arg_list_create(
             {
                 int i;
 
+                i = 0;
+
                 while (i < argi)
                 {
                     if (p_arg_list[i].p_buf)

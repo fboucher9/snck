@@ -1034,7 +1034,20 @@ snck_line_get(
 
                 errno = 0;
 
-                p_temp = linenoise(o_prompt.p_buf);
+                {
+                    char * p_prompt0 = snck_string_get(p_ctxt, &(o_prompt));
+
+                    if (p_prompt0)
+                    {
+                        p_temp = linenoise(p_prompt0);
+
+                        snck_string_put(p_ctxt, p_prompt0);
+                    }
+                    else
+                    {
+                        p_temp = NULL;
+                    }
+                }
 
                 g_ctxt = NULL;
 

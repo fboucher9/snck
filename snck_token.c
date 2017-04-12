@@ -416,10 +416,11 @@ snck_token_find_next_word(
 
             if (snck_token_skip_whitespace(p_ctxt, &(o_token_iterator)))
             {
-                snck_string_ref(
+                snck_string_ref_buffer(
                     p_ctxt,
                     p_args,
-                    p_line->p_buf + o_token_iterator.i_offset);
+                    p_line->p_buf + o_token_iterator.i_offset,
+                    p_line->i_buf_len - o_token_iterator.i_offset);
             }
             else
             {

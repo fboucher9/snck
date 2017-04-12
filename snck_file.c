@@ -617,9 +617,8 @@ snck_builtin_hist(
 
             if (p_history_line->o_buf.p_buf)
             {
-                fprintf(stderr, "%6d: len=%d, buf=[%.*s]\n",
+                fprintf(stderr, "%6d: %.*s\n",
                     -10+i,
-                    (int)(p_history_line->o_buf.i_buf_len),
                     (int)(p_history_line->o_buf.i_buf_len),
                     p_history_line->o_buf.p_buf);
             }
