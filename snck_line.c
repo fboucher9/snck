@@ -432,18 +432,12 @@ snck_suggest_from_history_line(
         i_history_index,
     struct snck_history_line const * const
         p_history_line,
-    char const * const
-        p_wild_buf,
-    size_t const
-        i_wild_buf_len)
+    struct snck_string const * const
+        p_wild)
 {
     int i_score;
 
-    struct snck_string o_wild;
-
-    snck_string_init_ref_buffer(&(o_wild), p_wild_buf, i_wild_buf_len);
-
-    i_score = snck_fuzzy_compare(&(p_history_line->o_buf), &(o_wild));
+    i_score = snck_fuzzy_compare(&(p_history_line->o_buf), p_wild);
 
     if (0 != i_score)
     {
@@ -482,7 +476,7 @@ snck_suggest_from_history_line(
 }
 
 static
-void
+size_t
 snck_suggest_from_history_list(
     struct snck_ctxt const * const
         p_ctxt,
@@ -492,10 +486,8 @@ snck_suggest_from_history_list(
         i_history_index,
     struct snck_list * const
         p_list,
-    char const * const
-        p_wild_buf,
-    size_t const
-        i_wild_buf_len)
+    struct snck_string const * const
+        p_wild)
 {
     struct snck_list const * p_it;
 
@@ -510,14 +502,210 @@ snck_suggest_from_history_list(
             p_suggest_list,
             i_history_index,
             p_history_line,
-            p_wild_buf,
-            i_wild_buf_len);
+            p_wild);
 
         i_history_index ++;
 
         p_it = p_it->p_prev;
     }
+
+    return i_history_index;
+
 }
+
+static
+void
+snck_suggest_from_history(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    struct snck_string const * const
+        p_wild)
+{
+    size_t i_history_index;
+
+    i_history_index = 1;
+
+    /* Suggest from cache first ... */
+    i_history_index =
+        snck_suggest_from_history_list(
+            p_ctxt,
+            p_suggest_list,
+            i_history_index,
+            &(p_ctxt->p_history->o_cache),
+            p_wild);
+
+    snck_history_load(p_ctxt);
+
+    i_history_index =
+        snck_suggest_from_history_list(
+            p_ctxt,
+            p_suggest_list,
+            i_history_index,
+            &(p_ctxt->p_history->o_list),
+            p_wild);
+
+    snck_history_unload(p_ctxt);
+
+} /* snck_suggest_from_history() */
+
+static
+void
+snck_suggest_from_lastword_node(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    struct snck_history_line const * const
+        p_history_line,
+    int const
+        i_history_index,
+    char const * const
+        buf,
+    size_t const
+        buf_len,
+    size_t const
+        pos)
+{
+    int i_len;
+
+    i_len = (int)(p_history_line->o_buf.i_buf_len);
+
+    while ((i_len > 0) && (' ' == p_history_line->o_buf.p_buf[i_len-1]))
+    {
+        i_len--;
+    }
+    while ((i_len > 0) && (' ' != p_history_line->o_buf.p_buf[i_len-1]))
+    {
+        i_len--;
+    }
+
+    {
+        struct snck_suggest_node * p_suggest_node;
+
+        p_suggest_node = snck_suggest_node_create(p_ctxt);
+
+        if (p_suggest_node)
+        {
+            char b_consumed;
+
+            if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + p_history_line->o_buf.i_buf_len - i_len + 16u + 1u))
+            {
+                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%.*s%.*s",
+                    (unsigned int)(1u),
+                    (unsigned int)(i_history_index),
+                    (int)(pos),
+                    buf,
+                    (int)(p_history_line->o_buf.i_buf_len - i_len),
+                    p_history_line->o_buf.p_buf + i_len,
+                    (int)(buf_len - pos),
+                    buf + pos);
+
+                p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
+
+                b_consumed = snck_suggest_list_add(p_ctxt, p_suggest_list, p_suggest_node);
+            }
+            else
+            {
+                b_consumed = 0;
+            }
+
+            if (!b_consumed)
+            {
+                snck_suggest_node_destroy(p_ctxt, p_suggest_node);
+            }
+        }
+    }
+}
+
+static
+int
+snck_suggest_from_lastword_list(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    struct snck_list * const
+        p_list,
+    int
+        i_history_index,
+    char const * const
+        buf,
+    size_t const
+        buf_len,
+    size_t const
+        pos)
+{
+    /* Insert word at pos */
+    struct snck_list const * p_it;
+
+    p_it = p_list->p_prev;
+
+    while (p_it != p_list)
+    {
+        struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
+
+        snck_suggest_from_lastword_node(
+            p_ctxt,
+            p_suggest_list,
+            p_history_line,
+            i_history_index,
+            buf,
+            buf_len,
+            pos);
+
+        p_it = p_it->p_prev;
+
+        i_history_index ++;
+    }
+
+    return i_history_index;
+}
+
+static
+void
+snck_suggest_from_lastword(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    char const * const
+        buf,
+    size_t const
+        buf_len,
+    size_t const
+        pos)
+{
+    int i_history_index;
+
+    i_history_index = 1;
+
+    i_history_index =
+        snck_suggest_from_lastword_list(
+            p_ctxt,
+            p_suggest_list,
+            &(p_ctxt->p_history->o_cache),
+            i_history_index,
+            buf,
+            buf_len,
+            pos);
+
+    snck_history_load(p_ctxt);
+
+    i_history_index =
+        snck_suggest_from_lastword_list(
+            p_ctxt,
+            p_suggest_list,
+            &(p_ctxt->p_history->o_list),
+            i_history_index,
+            buf,
+            buf_len,
+            pos);
+
+    snck_history_unload(p_ctxt);
+
+} /* snck_suggest_from_lastword() */
 
 static
 void
@@ -534,9 +722,9 @@ snck_completion(
 
     struct snck_ctxt const * const p_ctxt = g_ctxt;
 
-    int i_cmd_prefix;
+    size_t i_cmd_prefix;
 
-    int buf_len;
+    size_t buf_len;
 
     char b_cmd_is_cd;
 
@@ -548,7 +736,7 @@ snck_completion(
 
     i_cmd_prefix = 0;
 
-    while ((i_cmd_prefix <= (int)(pos)) && ((buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t')))
+    while ((i_cmd_prefix <= pos) && ((buf[i_cmd_prefix] == ' ') || (buf[i_cmd_prefix] == '\t')))
     {
         i_cmd_prefix ++;
     }
@@ -556,7 +744,7 @@ snck_completion(
     b_cmd_is_cd = 0;
 
     {
-        int i_cmd_it;
+        size_t i_cmd_it;
 
         i_cmd_it = i_cmd_prefix;
 
@@ -568,7 +756,7 @@ snck_completion(
             {
                 i_cmd_it ++;
 
-                if ((i_cmd_it <= (int)(pos)) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
+                if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
                 {
                     b_cmd_is_cd = 1;
                 }
@@ -576,7 +764,7 @@ snck_completion(
         }
     }
 
-    if (((9 == key) && ((int)(pos) > i_cmd_prefix)) || (256+1 == key) || (16 == key))
+    if (((9 == key) && (pos > i_cmd_prefix)) || (256+1 == key) || (16 == key))
     {
         struct snck_string o_folder;
 
@@ -653,103 +841,33 @@ snck_completion(
         /* completing a history entry */
         if (key == 16)
         {
-            /* Suggest from cache first ... */
-            snck_suggest_from_history_list(
+            struct snck_string o_wild;
+
+            snck_string_init_ref_buffer(
+                &(
+                    o_wild),
+                buf,
+                buf_len);
+
+            snck_suggest_from_history(
                 p_ctxt,
                 &(o_suggest_list),
-                1,
-                &(p_ctxt->p_history->o_cache),
-                buf + i_cmd_prefix,
-                buf_len - i_cmd_prefix);
+                &(o_wild));
 
-            snck_history_load(p_ctxt);
-
-            snck_suggest_from_history_list(
-                p_ctxt,
-                &(o_suggest_list),
-                64,
-                &(p_ctxt->p_history->o_list),
-                buf + i_cmd_prefix,
-                buf_len - i_cmd_prefix);
-
-            snck_history_unload(p_ctxt);
         }
         else if (key == 256+1)
         {
             /* Complete last argument of previous commands */
-            /* Insert word at pos */
-            struct snck_list const * p_it;
+            snck_suggest_from_lastword(
+                p_ctxt,
+                &(o_suggest_list),
+                buf,
+                buf_len,
+                pos);
 
-            int i_history_index;
-
-            snck_history_load(p_ctxt);
-
-            i_history_index = 1;
-
-            p_it = p_ctxt->p_history->o_list.p_prev;
-
-            while (p_it != &(p_ctxt->p_history->o_list))
-            {
-                struct snck_history_line const * p_history_line = (struct snck_history_line const *)(p_it);
-
-                int i_len;
-
-                i_len = p_history_line->o_buf.i_buf_len;
-
-                while ((i_len > 0) && (' ' == p_history_line->o_buf.p_buf[i_len-1]))
-                {
-                    i_len--;
-                }
-                while ((i_len > 0) && (' ' != p_history_line->o_buf.p_buf[i_len-1]))
-                {
-                    i_len--;
-                }
-
-                {
-                    struct snck_suggest_node * p_suggest_node;
-
-                    p_suggest_node = snck_suggest_node_create(p_ctxt);
-
-                    if (p_suggest_node)
-                    {
-                        char b_consumed;
-
-                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + p_history_line->o_buf.i_buf_len - i_len + 16u + 1u))
-                        {
-                            sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%.*s%s",
-                                (unsigned int)(1u),
-                                (unsigned int)(i_history_index),
-                                (int)(pos),
-                                buf,
-                                (int)(p_history_line->o_buf.i_buf_len - i_len),
-                                p_history_line->o_buf.p_buf + i_len,
-                                buf + pos);
-
-                            p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
-
-                            b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
-                        }
-                        else
-                        {
-                            b_consumed = 0;
-                        }
-
-                        if (!b_consumed)
-                        {
-                            snck_suggest_node_destroy(p_ctxt, p_suggest_node);
-                        }
-                    }
-                }
-
-                p_it = p_it->p_prev;
-
-                i_history_index ++;
-            }
-
-            snck_history_unload(p_ctxt);
         }
         /* completing a file name or full path to program */
-        else if ((pos1 == i_cmd_prefix) && (buf[pos1] != '.') && (buf[pos1] != '/'))
+        else if ((pos1 == (int)(i_cmd_prefix)) && (buf[pos1] != '.') && (buf[pos1] != '/'))
         {
             static char a_name_path[] = { 'P', 'A', 'T', 'H' };
 
