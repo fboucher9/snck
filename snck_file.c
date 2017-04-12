@@ -404,17 +404,32 @@ snck_builtin_shell(
 
     if (p_line->p_buf[0u])
     {
-        char * l_argv[2u];
+        char * p_line0;
 
-        l_argv[0u] = (char *)(p_line->p_buf);
+        p_line0 = snck_string_get(p_ctxt, p_line);
 
-        l_argv[1u] = NULL;
+        if (p_line0)
+        {
+            char * l_argv[2u];
 
-        execvp(l_argv[0u], l_argv);
+            l_argv[0u] = p_line0;
 
-        fprintf(stderr, "unable to replace shell\n");
+            l_argv[1u] = NULL;
 
-        b_result = 1;
+            execvp(l_argv[0u], l_argv);
+
+            fprintf(stderr, "unable to replace shell\n");
+
+            snck_string_put(p_ctxt, p_line0);
+
+            b_result = 1;
+        }
+        else
+        {
+            fprintf(stderr, "out of memory\n");
+
+            b_result = 0;
+        }
     }
     else
     {
