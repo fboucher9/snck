@@ -60,8 +60,6 @@ struct snck_history
 
     struct snck_list o_cache;
 
-    unsigned int i_cache_len;
-
 }; /* struct snck_history */
 
 /* --- Interface --- */

@@ -139,9 +139,6 @@ snck_history_init(
         &(
             p_history->o_cache));
 
-    p_history->i_cache_len =
-        0u;
-
     {
         static char a_histfile_suffix[] = { '/', '.', 's', 'n', 'c', 'k', 'h', 'i', 's', 't' };
 
@@ -186,9 +183,6 @@ snck_history_cleanup(
         p_ctxt,
         &(
             p_history->o_cache));
-
-    p_history->i_cache_len =
-        0u;
 
 } /* snck_history_cleanup() */
 
@@ -509,17 +503,6 @@ snck_history_add(
         &(
             p_history->o_cache),
         p_buf);
-
-    p_history->i_cache_len ++;
-
-    if (p_history->i_cache_len > 8)
-    {
-        snck_history_line_destroy(
-            p_ctxt,
-            (struct snck_history_line *)(p_history->o_cache.p_next));
-
-        p_history->i_cache_len --;
-    }
 
 } /* snck_history_add() */
 
