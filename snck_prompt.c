@@ -73,7 +73,7 @@ snck_prompt_pass1(
                 }
                 else if ('w' == c_in)
                 {
-                    if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
+                    if (0 == snck_string_compare_n(&(p_ctxt->p_info->o_pwd), &(p_ctxt->p_info->o_home), p_ctxt->p_info->o_home.i_buf_len))
                     {
                         i_out_len += p_ctxt->p_info->o_pwd.i_buf_len - p_ctxt->p_info->o_home.i_buf_len + 1;
                     }
@@ -160,7 +160,7 @@ snck_prompt_pass2(
                 else if ('w' == c_in)
                 {
                     char * p_buf;
-                    if (0 == strncmp(p_ctxt->p_info->o_pwd.p_buf, p_ctxt->p_info->o_home.p_buf, p_ctxt->p_info->o_home.i_buf_len))
+                    if (0 == snck_string_compare_n(&(p_ctxt->p_info->o_pwd), &(p_ctxt->p_info->o_home), p_ctxt->p_info->o_home.i_buf_len))
                     {
                         p_out->p_buf[p_out->i_buf_len] = '~';
                         p_out->i_buf_len ++;
