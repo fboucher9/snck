@@ -906,15 +906,26 @@ snck_completion(
                     {
                         struct snck_string o_comp;
 
-                        snck_string_init(p_ctxt, &(o_comp));
-
-                        snck_string_copy_buffer(p_ctxt, &(o_comp), o_value_path.p_buf + i_comp_start, i_comp_len);
+                        snck_string_init_ref_buffer(&(o_comp), o_value_path.p_buf + i_comp_start, i_comp_len);
 
                         /* enumerate executables in path */
                         {
                             DIR * p_dir_object;
 
-                            p_dir_object = opendir(o_comp.p_buf);
+                            {
+                                char * p_comp0 = snck_string_get(p_ctxt, &(o_comp));
+
+                                if (p_comp0)
+                                {
+                                    p_dir_object = opendir(p_comp0);
+
+                                    snck_string_put(p_ctxt, p_comp0);
+                                }
+                                else
+                                {
+                                    p_dir_object = NULL;
+                                }
+                            }
 
                             if (p_dir_object)
                             {
@@ -958,6 +969,8 @@ snck_completion(
                                                     {
                                                         sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s", (unsigned int)(i_score), (unsigned int)(0u), p_dir_entry->d_name);
                                                     }
+
+                                                    p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
 
                                                     b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
                                                 }

@@ -179,6 +179,15 @@ snck_string_compare(
     struct snck_string const * const
         p_ref2);
 
+int
+snck_string_compare_n(
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2,
+    size_t const
+        i_max_len);
+
 char *
 snck_string_get(
     struct snck_ctxt const * const
