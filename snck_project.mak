@@ -26,6 +26,7 @@ SNCK_SRCS = \
     $(SNCK_SRC_PATH)/_obj_snck_file.o \
     $(SNCK_SRC_PATH)/_obj_snck_token.o \
     $(SNCK_SRC_PATH)/_obj_snck_opts.o \
+    $(SNCK_SRC_PATH)/_obj_snck_suggest.o \
     $(SNCK_SRC_PATH)/_obj_snck_os.o
 
 SNCK_LIBS =

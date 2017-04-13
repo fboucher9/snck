@@ -212,4 +212,11 @@ snck_string_upper(
     struct snck_string * const
         p_string);
 
+int
+snck_fuzzy_compare(
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2);
+
 /* end-of-file: snck_string.h */

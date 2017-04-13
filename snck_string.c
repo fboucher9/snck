@@ -492,4 +492,54 @@ snck_string_upper(
 
 } /* snck_string_upper() */
 
+int
+snck_fuzzy_compare(
+    struct snck_string const * const
+        p_ref1,
+    struct snck_string const * const
+        p_ref2)
+{
+    int i_result;
+
+    size_t i_ref1;
+
+    size_t i_ref2;
+
+    if (p_ref2->i_buf_len >= 1)
+    {
+        i_result = 0;
+
+        i_ref1 = 0;
+
+        i_ref2 = 0;
+
+        /* try to find each letter of p_ref2[0:i_ref2_len-1] within p_ref1 */
+        while ((i_ref1 < p_ref1->i_buf_len) && (i_ref2 < p_ref2->i_buf_len))
+        {
+            /* Look for a letter */
+            if (p_ref1->p_buf[i_ref1] == p_ref2->p_buf[i_ref2])
+            {
+                i_ref1 ++;
+                i_ref2 ++;
+            }
+            else
+            {
+                i_ref1 ++;
+            }
+        }
+
+        if (i_ref2 >= p_ref2->i_buf_len)
+        {
+            i_result = i_ref1;
+        }
+    }
+    else
+    {
+        i_result = 1;
+    }
+
+    return i_result;
+
+} /* snck_fuzzy_compare() */
+
 /* end-of-file: snck_string.c */
