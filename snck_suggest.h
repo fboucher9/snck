@@ -100,4 +100,38 @@ snck_suggest_from_lastword(
     size_t const
         pos);
 
+void
+snck_suggest_command(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    char const * const
+        buf,
+    size_t const
+        buf_len,
+    size_t const
+        pos,
+    int const
+        pos1);
+
+void
+snck_suggest_file(
+    struct snck_ctxt const * const
+        p_ctxt,
+    struct snck_suggest_list * const
+        p_suggest_list,
+    char const * const
+        buf,
+    size_t const
+        buf_len,
+    size_t const
+        pos,
+    int const
+        pos1,
+    struct snck_string const * const
+        p_folder,
+    char const
+        b_cmd_is_cd);
+
 /* end-of-file: snck_suggest.h */
