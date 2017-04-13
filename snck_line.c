@@ -999,90 +999,143 @@ snck_completion(
 
             p_folder0 = snck_string_get(p_ctxt, &(o_folder));
 
-            d = opendir(p_folder0);
-
-            snck_string_put(p_ctxt, p_folder0);
-
-            if (d)
+            if (p_folder0)
             {
-                while (1)
+                d = opendir(p_folder0);
+
+                if (d)
                 {
-                    struct dirent * e;
-
-                    e = readdir(d);
-                    if (e)
+                    while (1)
                     {
-                        int i_score;
+                        struct dirent * e;
 
-                        struct snck_string o_dir_entry;
-
-                        struct snck_string o_wild;
-
-                        snck_string_init_ref(&(o_dir_entry), e->d_name);
-
-                        snck_string_init_ref_buffer(&(o_wild), buf + pos1, pos - pos1);
-
-                        i_score = 0;
-
-                        if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
+                        e = readdir(d);
+                        if (e)
                         {
-                        }
-                        else if (0 != (i_score = snck_fuzzy_compare(&(o_dir_entry), &(o_wild))))
-                        {
-                            if (!b_cmd_is_cd || (DT_DIR == e->d_type))
+                            int i_score;
+
+                            struct snck_string o_dir_entry;
+
+                            struct snck_string o_wild;
+
+                            snck_string_init_ref(&(o_dir_entry), e->d_name);
+
+                            snck_string_init_ref_buffer(&(o_wild), buf + pos1, pos - pos1);
+
+                            i_score = 0;
+
+                            if ((0 == strcmp(e->d_name, ".")) || (0 == strcmp(e->d_name, "..")))
                             {
-                                struct snck_suggest_node * p_suggest_node;
+                            }
+                            else if (0 != (i_score = snck_fuzzy_compare(&(o_dir_entry), &(o_wild))))
+                            {
+                                char b_filter;
 
-                                p_suggest_node = snck_suggest_node_create(p_ctxt);
-
-                                if (p_suggest_node)
+                                if (b_cmd_is_cd)
                                 {
-                                    char b_consumed;
-
-                                    if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(e->d_name) + 16u + 1u))
+                                    if (DT_DIR == e->d_type)
                                     {
-                                        if (pos1 > 0)
+                                        b_filter = 1;
+                                    }
+                                    else if (DT_LNK == e->d_type)
+                                    {
+                                        struct stat o_link_info;
+
+                                        static char a_link_path[256];
+
+                                        int i_stat_result;
+
+                                        sprintf(a_link_path, "%s%s", p_folder0, e->d_name);
+
+                                        i_stat_result =
+                                            stat(
+                                                a_link_path,
+                                                &(o_link_info));
+
+                                        if (
+                                            0 == i_stat_result)
                                         {
-                                            sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s",
-                                                (unsigned int)(i_score),
-                                                (unsigned int)(0u),
-                                                (int)(pos1),
-                                                buf,
-                                                e->d_name);
+                                            if (S_ISDIR(o_link_info.st_mode))
+                                            {
+                                                b_filter = 1;
+                                            }
+                                            else
+                                            {
+                                                b_filter = 0;
+                                            }
                                         }
                                         else
                                         {
-                                            sprintf(p_suggest_node->o_buf.p_buf,
-                                                "%08x%08x%s",
-                                                (unsigned int)(i_score),
-                                                (unsigned int)(0u),
-                                                e->d_name);
+                                            b_filter = 0;
                                         }
-
-                                        p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
-
-                                        b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
                                     }
                                     else
                                     {
-                                        b_consumed = 0;
+                                        b_filter = 0;
                                     }
+                                }
+                                else
+                                {
+                                    b_filter = 1;
+                                }
 
-                                    if (!b_consumed)
+                                if (b_filter)
+                                {
+                                    struct snck_suggest_node * p_suggest_node;
+
+                                    p_suggest_node = snck_suggest_node_create(p_ctxt);
+
+                                    if (p_suggest_node)
                                     {
-                                        snck_suggest_node_destroy(p_ctxt, p_suggest_node);
+                                        char b_consumed;
+
+                                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(e->d_name) + 16u + 1u))
+                                        {
+                                            if (pos1 > 0)
+                                            {
+                                                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s",
+                                                    (unsigned int)(i_score),
+                                                    (unsigned int)(0u),
+                                                    (int)(pos1),
+                                                    buf,
+                                                    e->d_name);
+                                            }
+                                            else
+                                            {
+                                                sprintf(p_suggest_node->o_buf.p_buf,
+                                                    "%08x%08x%s",
+                                                    (unsigned int)(i_score),
+                                                    (unsigned int)(0u),
+                                                    e->d_name);
+                                            }
+
+                                            p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
+
+                                            b_consumed = snck_suggest_list_add(p_ctxt, &(o_suggest_list), p_suggest_node);
+                                        }
+                                        else
+                                        {
+                                            b_consumed = 0;
+                                        }
+
+                                        if (!b_consumed)
+                                        {
+                                            snck_suggest_node_destroy(p_ctxt, p_suggest_node);
+                                        }
                                     }
                                 }
                             }
                         }
+                        else
+                        {
+                            break;
+                        }
                     }
-                    else
-                    {
-                        break;
-                    }
+
+                    closedir(d);
                 }
 
-                closedir(d);
+                snck_string_put(p_ctxt, p_folder0);
             }
         }
 
