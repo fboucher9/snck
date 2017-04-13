@@ -296,6 +296,7 @@ snck_suggest_list_add(
 
 } /* snck_suggest_list_add() */
 
+static
 void
 snck_suggest_from_history_line(
     struct snck_ctxt const * const
@@ -349,6 +350,7 @@ snck_suggest_from_history_line(
 
 }
 
+static
 size_t
 snck_suggest_from_history_list(
     struct snck_ctxt const * const
@@ -422,6 +424,7 @@ snck_suggest_from_history(
 
 } /* snck_suggest_from_history() */
 
+static
 void
 snck_suggest_from_lastword_node(
     struct snck_ctxt const * const
@@ -490,6 +493,7 @@ snck_suggest_from_lastword_node(
     }
 }
 
+static
 int
 snck_suggest_from_lastword_list(
     struct snck_ctxt const * const
@@ -576,3 +580,4 @@ snck_suggest_from_lastword(
 
 } /* snck_suggest_from_lastword() */
 
+/* end-of-file: snck_suggest.c */

@@ -27,9 +27,6 @@ Description:
 /* Predefine context handle */
 struct snck_ctxt;
 
-/* Predefine history object */
-struct snck_history_line;
-
 struct snck_suggest_node
 {
     struct snck_list o_list;
@@ -82,32 +79,6 @@ snck_suggest_list_add(
         p_suggest_node);
 
 void
-snck_suggest_from_history_line(
-    struct snck_ctxt const * const
-        p_ctxt,
-    struct snck_suggest_list * const
-        p_suggest_list,
-    size_t const
-        i_history_index,
-    struct snck_history_line const * const
-        p_history_line,
-    struct snck_string const * const
-        p_wild);
-
-size_t
-snck_suggest_from_history_list(
-    struct snck_ctxt const * const
-        p_ctxt,
-    struct snck_suggest_list * const
-        p_suggest_list,
-    size_t
-        i_history_index,
-    struct snck_list * const
-        p_list,
-    struct snck_string const * const
-        p_wild);
-
-void
 snck_suggest_from_history(
     struct snck_ctxt const * const
         p_ctxt,
@@ -115,40 +86,6 @@ snck_suggest_from_history(
         p_suggest_list,
     struct snck_string const * const
         p_wild);
-
-void
-snck_suggest_from_lastword_node(
-    struct snck_ctxt const * const
-        p_ctxt,
-    struct snck_suggest_list * const
-        p_suggest_list,
-    struct snck_history_line const * const
-        p_history_line,
-    int const
-        i_history_index,
-    char const * const
-        buf,
-    size_t const
-        buf_len,
-    size_t const
-        pos);
-
-int
-snck_suggest_from_lastword_list(
-    struct snck_ctxt const * const
-        p_ctxt,
-    struct snck_suggest_list * const
-        p_suggest_list,
-    struct snck_list * const
-        p_list,
-    int
-        i_history_index,
-    char const * const
-        buf,
-    size_t const
-        buf_len,
-    size_t const
-        pos);
 
 void
 snck_suggest_from_lastword(
