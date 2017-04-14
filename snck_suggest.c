@@ -735,6 +735,40 @@ snck_suggest_command(
 
 } /* snck_suggest_command() */
 
+char
+snck_suggest_is_special(
+    char const
+        c)
+{
+    char
+        b_special;
+
+    if (
+        (
+            ('a' <= c)
+            && ('z' >= c))
+        || (
+            ('A' <= c)
+            && ('Z' >= c))
+        || (
+            ('0' <= c)
+            && ('9' >= c))
+        || ('.' == c)
+        || ('-' == c)
+        || ('_' == c))
+    {
+        b_special = 0;
+    }
+    else
+    {
+        b_special = 1;
+    }
+
+    return
+        b_special;
+
+} /* snck_suggest_is_special() */
+
 void
 snck_suggest_file(
     struct snck_ctxt const * const
@@ -850,34 +884,55 @@ snck_suggest_file(
                             {
                                 char b_consumed;
 
-                                if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(e->d_name) + 16u + 1u))
+                                if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + (strlen(e->d_name) * 2) + 16u + 1u))
                                 {
-                                    if (pos1 > 0)
-                                    {
-                                        sprintf(
-                                            p_suggest_node->o_buf.p_buf,
-                                            "%08x%08x%.*s%s%.*s",
-                                            (unsigned int)(i_score),
-                                            (unsigned int)(0u),
-                                            (int)(pos1),
-                                            buf,
-                                            e->d_name,
-                                            (int)(buf_len - pos),
-                                            buf + pos);
-                                    }
-                                    else
-                                    {
-                                        sprintf(
-                                            p_suggest_node->o_buf.p_buf,
-                                            "%08x%08x%s%.*s",
-                                            (unsigned int)(i_score),
-                                            (unsigned int)(0u),
-                                            e->d_name,
-                                            (int)(buf_len - pos),
-                                            buf + pos);
-                                    }
+                                    sprintf(
+                                        p_suggest_node->o_buf.p_buf,
+                                        "%08x%08x",
+                                        (unsigned int)(i_score),
+                                        (unsigned int)(0u));
 
                                     p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
+
+                                    if (pos1 > 0)
+                                    {
+                                        memcpy(
+                                            p_suggest_node->o_buf.p_buf + p_suggest_node->o_buf.i_buf_len,
+                                            buf,
+                                            pos1);
+
+                                        p_suggest_node->o_buf.i_buf_len += pos1;
+                                    }
+
+                                    {
+                                        char const * p_name_it;
+
+                                        p_name_it = e->d_name;
+
+                                        while (*p_name_it)
+                                        {
+                                            if (snck_suggest_is_special(*p_name_it))
+                                            {
+                                                p_suggest_node->o_buf.p_buf[p_suggest_node->o_buf.i_buf_len] = '\\';
+                                                p_suggest_node->o_buf.i_buf_len ++;
+                                            }
+
+                                            p_suggest_node->o_buf.p_buf[p_suggest_node->o_buf.i_buf_len] = *p_name_it;
+                                            p_suggest_node->o_buf.i_buf_len ++;
+
+                                            p_name_it ++;
+                                        }
+                                    }
+
+                                    if (buf_len > pos)
+                                    {
+                                        memcpy(
+                                            p_suggest_node->o_buf.p_buf + p_suggest_node->o_buf.i_buf_len,
+                                            buf + pos,
+                                            buf_len - pos);
+
+                                        p_suggest_node->o_buf.i_buf_len += (buf_len - pos);
+                                    }
 
                                     b_consumed = snck_suggest_list_add(p_ctxt, p_suggest_list, p_suggest_node);
                                 }
