@@ -854,20 +854,27 @@ snck_suggest_file(
                                 {
                                     if (pos1 > 0)
                                     {
-                                        sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s",
+                                        sprintf(
+                                            p_suggest_node->o_buf.p_buf,
+                                            "%08x%08x%.*s%s%.*s",
                                             (unsigned int)(i_score),
                                             (unsigned int)(0u),
                                             (int)(pos1),
                                             buf,
-                                            e->d_name);
+                                            e->d_name,
+                                            (int)(buf_len - pos),
+                                            buf + pos);
                                     }
                                     else
                                     {
-                                        sprintf(p_suggest_node->o_buf.p_buf,
-                                            "%08x%08x%s",
+                                        sprintf(
+                                            p_suggest_node->o_buf.p_buf,
+                                            "%08x%08x%s%.*s",
                                             (unsigned int)(i_score),
                                             (unsigned int)(0u),
-                                            e->d_name);
+                                            e->d_name,
+                                            (int)(buf_len - pos),
+                                            buf + pos);
                                     }
 
                                     p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
