@@ -262,6 +262,8 @@ snck_suggest_list_add(
             &(
                 p_suggest_list->o_list));
 
+        b_inserted = 1;
+
         p_suggest_list->i_count ++;
     }
 
@@ -283,6 +285,8 @@ snck_suggest_list_add(
                         p_suggest_node->o_list),
                     &(
                         p_suggest_node->o_list));
+
+                p_suggest_list->i_count --;
 
                 b_consumed = 0;
             }
