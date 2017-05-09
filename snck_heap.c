@@ -22,6 +22,24 @@ Description:
 /* Module */
 #include "snck_heap.h"
 
+/*
+
+Function: snck_heap_init()
+
+Description:
+
+    Initialize snck_heap module.
+
+Parameters:
+
+    p_ctxt
+        Pointer to snck_ctxt structure.
+
+Returns:
+
+    true on success, false otherwise.
+
+*/
 char
 snck_heap_init(
     struct snck_ctxt const * const
@@ -37,6 +55,24 @@ snck_heap_init(
 
 } /* snck_heap_init() */
 
+/*
+
+Function: snck_heap_cleanup()
+
+Description:
+
+    Cleanup snck_heap module.
+
+Parameters:
+
+    p_ctxt
+        Pointer to snck_ctxt structure.
+
+Returns:
+
+    true on success, false otherwise.
+
+*/
 void
 snck_heap_cleanup(
     struct snck_ctxt const * const
@@ -52,6 +88,28 @@ snck_heap_cleanup(
 
 } /* snck_heap_cleanup() */
 
+/*
+
+Function: snck_heap_realloc
+
+Description:
+
+Parameters:
+
+    p_ctxt
+        Pointer to snck_ctxt structure.
+
+    p_buf
+        Pointer to existing buffer for re-allocation
+
+    i_buf_len
+        Length of desired buffer
+
+Returns:
+
+    Pointer to re-allocated buffer
+
+*/
 void *
 snck_heap_realloc(
     struct snck_ctxt const * const

@@ -35,28 +35,40 @@ Comments:
 
     -l  login
     -c  command
-    -s  stdin
+    -s  input
+    -x  trace
+    -i  interact
+    -n  dryrun
 
 */
 struct snck_opts
 {
-    struct snck_string const * p_script;
+    struct snck_string const *
+        p_script;
 
-    struct snck_string const * p_argv;
+    struct snck_string const *
+        p_argv;
 
-    size_t i_argc;
+    size_t
+        i_argc;
 
-    char b_login;
+    char
+        b_login;
 
-    char b_command;
+    char
+        b_command;
 
-    char b_input;
+    char
+        b_input;
 
-    char b_trace;
+    char
+        b_trace;
 
-    char b_interact;
+    char
+        b_interact;
 
-    char b_dryrun;
+    char
+        b_dryrun;
 
 }; /* struct snck_opts */
 

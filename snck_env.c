@@ -25,9 +25,30 @@ Description:
 /* Module */
 #include "snck_env.h"
 
-/* Heap */
-#include "snck_heap.h"
+/*
 
+Function: snck_env_get()
+
+Description:
+
+    Get value of an environment variable.
+
+Parameters:
+
+    p_ctxt
+        Pointer to snck_ctxt structure
+
+    p_name
+        Pointer to snck_string for name of environment variable
+
+    p_value
+        Pointer to snck_string for value of environment variable
+
+Returns:
+
+    true on success, false otherwise.
+
+*/
 char
 snck_env_get(
     struct snck_ctxt const * const
@@ -71,6 +92,26 @@ snck_env_get(
 
 } /* snck_env_get() */
 
+/*
+
+Function: snck_env_set()
+
+Description:
+
+    p_ctxt
+        Pointer to snck_ctxt structure
+
+    p_name
+        Pointer to snck_string for name of environment variable
+
+    p_value
+        Pointer to snck_string for value of environment variable
+
+Returns:
+
+    true on success, false otherwise.
+
+*/
 char
 snck_env_set(
     struct snck_ctxt const * const
