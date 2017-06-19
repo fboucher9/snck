@@ -836,7 +836,7 @@ snck_suggest_file(
                             {
                                 b_filter = 1;
                             }
-                            else if (DT_LNK == e->d_type)
+                            else if ((DT_LNK == e->d_type) || (DT_UNKNOWN == e->d_type))
                             {
                                 struct stat o_link_info;
 
