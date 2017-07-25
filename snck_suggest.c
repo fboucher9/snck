@@ -836,7 +836,7 @@ snck_suggest_file(
                             {
                                 b_filter = 1;
                             }
-                            else if (DT_LNK == e->d_type)
+                            else if ((DT_LNK == e->d_type) || (DT_UNKNOWN == e->d_type))
                             {
                                 struct stat o_link_info;
 
@@ -844,7 +844,20 @@ snck_suggest_file(
 
                                 int i_stat_result;
 
-                                sprintf(a_link_path, "%s%s", p_folder0, e->d_name);
+                                if ((p_folder->i_buf_len > 0) && ('/' == p_folder->p_buf[p_folder->i_buf_len - 1u]))
+                                {
+                                    sprintf(a_link_path, "%.*s%s",
+                                        (int)(p_folder->i_buf_len),
+                                        p_folder->p_buf,
+                                        e->d_name);
+                                }
+                                else
+                                {
+                                    sprintf(a_link_path, "%.*s/%s",
+                                        (int)(p_folder->i_buf_len),
+                                        p_folder->p_buf,
+                                        e->d_name);
+                                }
 
                                 i_stat_result =
                                     stat(
