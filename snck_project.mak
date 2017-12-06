@@ -42,6 +42,9 @@ endif
 SNCK_CFLAGS += -DSNCK_HAVE_LINENOISE
 SNCK_LIBS += -llinenoise
 
+# SNCK_CFLAGS += -DSNCK_HAVE_FEED
+# SNCK_LIBS += -lfeed
+
 .PHONY : all
 all : $(SNCK_DST_PATH)/snck
 

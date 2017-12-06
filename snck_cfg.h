@@ -22,4 +22,9 @@ Description:
 #define SNCK_FEATURE_LINENOISE
 #endif /* #if defined(SNCK_HAVE_LINENOISE) */
 
+/* Use of feed library for input */
+#if defined(SNCK_HAVE_FEED)
+#define SNCK_FEATURE_FEED
+#endif /* #if defined(SNCK_HAVE_FEED) */
+
 /* end-of-file: snck_cfg.h */
