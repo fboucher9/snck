@@ -39,11 +39,15 @@ else
 SNCK_CFLAGS += -s -O2 -Os
 endif
 
+ifdef LINENOISE
 SNCK_CFLAGS += -DSNCK_HAVE_LINENOISE
 SNCK_LIBS += -llinenoise
+endif
 
-# SNCK_CFLAGS += -DSNCK_HAVE_FEED
-# SNCK_LIBS += -lfeed
+ifdef FEED
+SNCK_CFLAGS += -DSNCK_HAVE_FEED -I$(FEED_SRC_PATH)
+SNCK_LIBS += $(FEED_DST_PATH)/libfeed.a
+endif
 
 .PHONY : all
 all : $(SNCK_DST_PATH)/snck
@@ -68,10 +72,18 @@ $(SNCK_DST_PATH)/snck_os.h.gch : $(SNCK_SRC_PATH)/snck_os.h
 	@$(SNCK_CC) -c -o $@ $(SNCK_CFLAGS) $(SNCK_SRC_PATH)/snck_os.h
 
 .PHONY : clean
-clean:
-	@echo cleanup
-	@rm -f $(SNCK_DST_PATH)/snck
-	@rm -f $(SNCK_DST_PATH)/_obj_*
-	@rm -f $(SNCK_DST_PATH)/*.gch
+clean: snck_clean
+
+.PHONY: snck_clean
+snck_clean:
+	@echo cleanup snck
+	-@rm -f $(SNCK_DST_PATH)/snck
+	-@rm -f $(SNCK_DST_PATH)/_obj_*
+	-@rm -f $(SNCK_DST_PATH)/*.gch
+
+ifdef FEED
+# Dependency on external library
+$(SNCK_DST_PATH)/snck : $(FEED_DST_PATH)/libfeed.a
+endif
 
 -include $(SNCK_DST_PATH)/_obj_*.o.d

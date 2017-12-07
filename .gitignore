@@ -3,4 +3,6 @@ snck
 *.sh
 _obj_*
 *.gch
+*.a
+*.so
 tags
