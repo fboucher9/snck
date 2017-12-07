@@ -517,7 +517,7 @@ snck_feed_completion(
                         p_feed_handle,
                         (unsigned char *)(p_suggest_temp->o_buf.p_buf + 16u),
                         p_suggest_temp->o_buf.i_buf_len - 16u,
-                        0);
+                        p_suggest_temp->o_buf.i_buf_len - 16u);
                 }
 
                 p_it = p_it->p_next;
