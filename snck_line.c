@@ -536,6 +536,8 @@ snck_feed_notify_callback(
         p_context,
     struct feed_handle * const
         p_feed_handle,
+    unsigned short int const
+        i_code,
     unsigned char const * const
         p_event,
     unsigned long int const
@@ -553,6 +555,8 @@ snck_feed_notify_callback(
 
     (void)(
         p_ctxt);
+    (void)(
+        i_code);
 
     if (
         i_event_length)
@@ -775,6 +779,13 @@ snck_line_get(
                         o_feed_descriptor;
 
                     {
+                        memset(
+                            &(
+                                o_feed_descriptor),
+                            0u,
+                            sizeof(
+                                o_feed_descriptor));
+
                         o_feed_descriptor.p_context =
                             (void *)(
                                 p_ctxt);

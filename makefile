@@ -7,7 +7,7 @@ LINENOISE = 1
 # FEED = 1
 
 ifdef FEED
-FEED_SRC_PATH = ../feed
+FEED_SRC_PATH = ../feed/
 include $(FEED_SRC_PATH)/feed_project.mak
 endif
 
