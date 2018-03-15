@@ -46,7 +46,7 @@ endif
 
 ifdef FEED
 SNCK_CFLAGS += -DSNCK_HAVE_FEED -I$(FEED_SRC_PATH)
-SNCK_LIBS += $(FEED_DST_PATH)/libfeed.a
+SNCK_LIBS += $(FEED_OBJ_PATH)libfeed.a
 endif
 
 .PHONY : all
@@ -83,7 +83,7 @@ snck_clean:
 
 ifdef FEED
 # Dependency on external library
-$(SNCK_DST_PATH)/snck : $(FEED_DST_PATH)/libfeed.a
+$(SNCK_DST_PATH)/snck : $(FEED_OBJ_PATH)libfeed.a
 endif
 
 -include $(SNCK_DST_PATH)/_obj_*.o.d

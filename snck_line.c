@@ -536,6 +536,8 @@ snck_feed_notify_callback(
         p_context,
     struct feed_handle * const
         p_feed_handle,
+    unsigned short int const
+        i_key,
     unsigned char const * const
         p_event,
     unsigned long int const
@@ -553,6 +555,8 @@ snck_feed_notify_callback(
 
     (void)(
         p_ctxt);
+    (void)(
+        i_key);
 
     if (
         i_event_length)
@@ -782,6 +786,16 @@ snck_line_get(
                         o_feed_descriptor.p_notify =
                             &(
                                 snck_feed_notify_callback);
+
+                        o_feed_descriptor.p_device_intf =
+                            (struct feed_device_intf *)(
+                                0);
+
+                        o_feed_descriptor.i_max_screen_width =
+                            0;
+
+                        o_feed_descriptor.i_max_screen_height =
+                            0;
                     }
 
                     p_feed_handle =
