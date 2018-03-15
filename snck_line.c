@@ -833,6 +833,15 @@ snck_line_get(
                                 s_prompt2));
                     }
 
+                    {
+                        /* setup color theme */
+                        feed_theme(
+                            p_feed_handle,
+                            feed_syntax_suggest,
+                            feed_color_dark_green,
+                            feed_color_default);
+                    }
+
                     errno = 0;
 
                     feed_start(
