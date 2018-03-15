@@ -13,9 +13,9 @@ SNCK_CC = $(CC)
 endif
 
 ifdef SNCK_DBG
-SNCK_OBJ_PATH = $(SNCK_DST_PATH).objchk/
+SNCK_OBJ_PATH = $(SNCK_DST_PATH).obj/snck/chk/
 else
-SNCK_OBJ_PATH = $(SNCK_DST_PATH).objfre/
+SNCK_OBJ_PATH = $(SNCK_DST_PATH).obj/snck/fre/
 endif
 
 SNCK_SRCS = \

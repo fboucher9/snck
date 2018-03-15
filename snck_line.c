@@ -136,18 +136,28 @@ snck_completion(
 
         i_cmd_it = i_cmd_prefix;
 
-        if ('c' == buf[i_cmd_it])
+        if (('c' == buf[i_cmd_it]) &&
+            ('d' == buf[i_cmd_it + 1u]))
         {
-            i_cmd_it ++;
+            i_cmd_it += 2u;
 
-            if ('d' == buf[i_cmd_it])
+            if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
             {
-                i_cmd_it ++;
+                b_cmd_is_cd = 1;
+            }
+        }
+        else if (('r' == buf[i_cmd_it]) &&
+            ('m' == buf[i_cmd_it + 1u]) &&
+            ('d' == buf[i_cmd_it + 2u]) &&
+            ('i' == buf[i_cmd_it + 3u]) &&
+            ('r' == buf[i_cmd_it + 4u]) &&
+            )
+        {
+            i_cmd_it += 5u;
 
-                if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
-                {
-                    b_cmd_is_cd = 1;
-                }
+            if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
+            {
+                b_cmd_is_cd = 1;
             }
         }
     }
@@ -352,18 +362,27 @@ snck_feed_completion(
 
         i_cmd_it = i_cmd_prefix;
 
-        if ('c' == buf[i_cmd_it])
+        if (('c' == buf[i_cmd_it]) &&
+            ('d' == buf[i_cmd_it + 1u]))
         {
-            i_cmd_it ++;
+            i_cmd_it += 2u;
 
-            if ('d' == buf[i_cmd_it])
+            if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
             {
-                i_cmd_it ++;
+                b_cmd_is_cd = 1;
+            }
+        }
+        else if (('r' == buf[i_cmd_it]) &&
+            ('m' == buf[i_cmd_it + 1u]) &&
+            ('d' == buf[i_cmd_it + 2u]) &&
+            ('i' == buf[i_cmd_it + 3u]) &&
+            ('r' == buf[i_cmd_it + 4u]))
+        {
+            i_cmd_it += 5u;
 
-                if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
-                {
-                    b_cmd_is_cd = 1;
-                }
+            if ((i_cmd_it <= pos) && (('\000' == buf[i_cmd_it]) || (buf[i_cmd_it] == ' ') || (buf[i_cmd_it] == '\t')))
+            {
+                b_cmd_is_cd = 1;
             }
         }
     }
