@@ -13,6 +13,9 @@ Description:
 /* OS headers */
 #include "snck_os.h"
 
+/* Configuration */
+#include "snck_cfg.h"
+
 /* List */
 #include "snck_list.h"
 
@@ -451,6 +454,13 @@ snck_suggest_from_lastword_node(
 {
     int i_len;
 
+    (void)(
+        buf);
+    (void)(
+        buf_len);
+    (void)(
+        pos);
+
     i_len = (int)(p_history_line->o_buf.i_buf_len);
 
     while ((i_len > 0) && (' ' == p_history_line->o_buf.p_buf[i_len-1]))
@@ -471,8 +481,9 @@ snck_suggest_from_lastword_node(
         {
             char b_consumed;
 
-            if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + p_history_line->o_buf.i_buf_len - i_len + 16u + 1u))
+            if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), p_history_line->o_buf.i_buf_len - i_len + 16u + 1u))
             {
+#if defined SNCK_FEATURE_LINENOISE
                 sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%.*s%.*s",
                     (unsigned int)(1u),
                     (unsigned int)(i_history_index),
@@ -482,6 +493,13 @@ snck_suggest_from_lastword_node(
                     p_history_line->o_buf.p_buf + i_len,
                     (int)(buf_len - pos),
                     buf + pos);
+#else /* #if defined SNCK_FEATURE_LINENOISE */
+                sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s",
+                    (unsigned int)(1u),
+                    (unsigned int)(i_history_index),
+                    (int)(p_history_line->o_buf.i_buf_len - i_len),
+                    p_history_line->o_buf.p_buf + i_len);
+#endif /* #if defined SNCK_FEATURE_LINENOISE */
 
                 p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
 
@@ -608,6 +626,9 @@ snck_suggest_command(
 
     struct snck_string o_value_path;
 
+    (void)(
+        buf_len);
+
     snck_string_init(p_ctxt, &(o_value_path));
 
     if (snck_env_get(p_ctxt, &(o_name_path), &(o_value_path)))
@@ -692,13 +713,15 @@ snck_suggest_command(
                                     {
                                         char b_consumed;
 
-                                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + strlen(p_dir_entry->d_name) + 16u + 1u))
+                                        if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), strlen(p_dir_entry->d_name) + 16u + 1u))
                                         {
+#if defined SNCK_FEATURE_LINENOISE
                                             if (pos1 > 0)
                                             {
                                                 sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%.*s%s", (unsigned int)(i_score), (unsigned int)(0u), (int)(pos1), buf, p_dir_entry->d_name);
                                             }
                                             else
+#endif /* #if defined SNCK_FEATURE_LINENOISE */
                                             {
                                                 sprintf(p_suggest_node->o_buf.p_buf, "%08x%08x%s", (unsigned int)(i_score), (unsigned int)(0u), p_dir_entry->d_name);
                                             }
@@ -795,6 +818,9 @@ snck_suggest_file(
     DIR * d;
 
     char * p_folder0;
+
+    (void)(
+        buf_len);
 
     p_folder0 = snck_string_get(p_ctxt, p_folder);
 
@@ -901,7 +927,7 @@ snck_suggest_file(
                             {
                                 char b_consumed;
 
-                                if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), buf_len + (strlen(e->d_name) * 2) + 16u + 1u))
+                                if (snck_string_resize(p_ctxt, &(p_suggest_node->o_buf), (strlen(e->d_name) * 2) + 16u + 1u))
                                 {
                                     sprintf(
                                         p_suggest_node->o_buf.p_buf,
@@ -911,6 +937,7 @@ snck_suggest_file(
 
                                     p_suggest_node->o_buf.i_buf_len = strlen(p_suggest_node->o_buf.p_buf);
 
+#if defined SNCK_FEATURE_LINENOISE
                                     if (pos1 > 0)
                                     {
                                         memcpy(
@@ -920,6 +947,7 @@ snck_suggest_file(
 
                                         p_suggest_node->o_buf.i_buf_len += pos1;
                                     }
+#endif /* #if defined SNCK_FEATURE_LINENOISE */
 
                                     {
                                         char const * p_name_it;
@@ -941,6 +969,7 @@ snck_suggest_file(
                                         }
                                     }
 
+#if defined SNCK_FEATURE_LINENOISE
                                     if (buf_len > pos)
                                     {
                                         memcpy(
@@ -950,6 +979,7 @@ snck_suggest_file(
 
                                         p_suggest_node->o_buf.i_buf_len += (buf_len - pos);
                                     }
+#endif /* #if defined SNCK_FEATURE_LINENOISE */
 
                                     b_consumed = snck_suggest_list_add(p_ctxt, p_suggest_list, p_suggest_node);
                                 }

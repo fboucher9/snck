@@ -395,6 +395,10 @@ snck_feed_completion(
 
         int pos1;
 
+        int i_complete_pos;
+
+        int i_complete_len;
+
         if (pos > 0)
         {
             pos0 = (int)(pos - 1);
@@ -461,6 +465,10 @@ snck_feed_completion(
             snck_string_ref(p_ctxt, &(o_folder), ".");
         }
 
+        i_complete_pos = 0;
+
+        i_complete_len = buf_len;
+
         /* completing a history entry */
         if (key == 16)
         {
@@ -488,6 +496,9 @@ snck_feed_completion(
                 buf_len,
                 pos);
 
+            i_complete_pos = pos;
+
+            i_complete_len = 0;
         }
         /* completing a file name or full path to program */
         else if ((pos1 == (int)(i_cmd_prefix)) && (buf[pos1] != '.') && (buf[pos1] != '/'))
@@ -500,6 +511,9 @@ snck_feed_completion(
                 pos,
                 pos1);
 
+            i_complete_pos = pos1;
+
+            i_complete_len = pos - pos1;
         }
         else
         {
@@ -512,6 +526,10 @@ snck_feed_completion(
                 pos1,
                 &(o_folder),
                 b_cmd_is_cd);
+
+            i_complete_pos = pos1;
+
+            i_complete_len = pos - pos1;
         }
 
         snck_string_cleanup(p_ctxt, &(o_folder));
@@ -521,8 +539,8 @@ snck_feed_completion(
 
             feed_complete(
                 p_feed_handle,
-                0,
-                buf_len);
+                i_complete_pos,
+                i_complete_len);
 
             while (p_it != &(o_suggest_list.o_list))
             {
@@ -536,7 +554,7 @@ snck_feed_completion(
                         p_feed_handle,
                         (unsigned char *)(p_suggest_temp->o_buf.p_buf + 16u),
                         p_suggest_temp->o_buf.i_buf_len - 16u,
-                        p_suggest_temp->o_buf.i_buf_len - 16u);
+                        i_complete_pos + p_suggest_temp->o_buf.i_buf_len - 16u);
                 }
 
                 p_it = p_it->p_next;
