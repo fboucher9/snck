@@ -242,6 +242,46 @@ snck_main_cleanup(
     snck_heap_cleanup(p_ctxt);
 }
 
+/*
+
+Function: snck_main_umask
+
+Description:
+
+    Setup default umask.  This is required when launching snck shell as a
+    first process in a process tree.
+
+*/
+static
+void
+snck_main_umask(
+    struct snck_ctxt const * const
+        p_ctxt)
+{
+    /* apply default umask 022 */
+    mode_t
+        i_new_mask;
+
+    mode_t
+        i_old_mask;
+
+    (void)(
+        p_ctxt);
+
+    i_new_mask =
+        (mode_t)(
+            S_IWGRP
+            | S_IWOTH);
+
+    i_old_mask =
+        umask(
+            i_new_mask);
+
+    (void)(
+        i_old_mask);
+
+} /* snck_main_umask() */
+
 static
 void
 snck_main_login(
@@ -335,6 +375,8 @@ snck_main_dispatch(
 
     struct snck_opts const * const p_opts =
         p_ctxt->p_opts;
+
+    snck_main_umask(p_ctxt);
 
     if (p_opts->b_login)
     {

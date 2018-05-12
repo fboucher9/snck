@@ -765,6 +765,67 @@ snck_builtin_edit(
 
 static
 char
+snck_builtin_umask(
+    struct snck_ctxt const * const p_ctxt,
+    struct snck_string const * const p_line)
+{
+    char b_result;
+
+    (void)(p_ctxt);
+
+    if (p_line->i_buf_len)
+    {
+        unsigned long int i_mod_mask;
+
+        size_t i_buf_iterator;
+
+        i_mod_mask = 0;
+
+        i_buf_iterator = 0;
+
+        while (i_buf_iterator < p_line->i_buf_len)
+        {
+            char c;
+
+            c = p_line->p_buf[i_buf_iterator];
+
+            if (('0' <= c) && ('7' >= c))
+            {
+                i_mod_mask = ((i_mod_mask * 8) + (c - '0'));
+            }
+
+            i_buf_iterator ++;
+        }
+
+        umask((mode_t)(i_mod_mask));
+    }
+    else
+    {
+        unsigned long int i_mod_mask;
+
+        i_mod_mask =
+            (unsigned long int)(
+                umask(
+                    S_IWGRP | S_IWOTH));
+
+        umask(
+            i_mod_mask);
+
+        fprintf(
+            stdout,
+            "%04lo\n",
+            i_mod_mask);
+    }
+
+    b_result = 1;
+
+    return b_result;
+
+} /* snck_builtin_source() */
+
+
+static
+char
 snck_file_decode_line(
     struct snck_ctxt const * const p_ctxt,
     struct snck_string const * const p_line)
@@ -805,6 +866,8 @@ snck_file_decode_line(
 
         static char const a_name_logout[] = { 'l', 'o', 'g', 'o', 'u', 't' };
 
+        static char const a_name_umask[] = { 'u', 'm', 'a', 's', 'k' };
+
         static struct snck_string const o_name_cd = { (char *)(a_name_cd), sizeof(a_name_cd), 0u };
 
         static struct snck_string const o_name_set = { (char *)(a_name_set), sizeof(a_name_set), 0u };
@@ -820,6 +883,8 @@ snck_file_decode_line(
         static struct snck_string const o_name_exit = { (char *)(a_name_exit), sizeof(a_name_exit), 0u };
 
         static struct snck_string const o_name_logout = { (char *)(a_name_logout), sizeof(a_name_logout), 0u };
+
+        static struct snck_string const o_name_umask = { (char *)(a_name_umask), sizeof(a_name_umask), 0u };
 
 #if defined(SNCK_DBG)
         {
@@ -871,6 +936,10 @@ snck_file_decode_line(
             || (0 == snck_string_compare(&(o_cmd), &(o_name_logout))))
         {
             b_result = snck_builtin_exit(p_ctxt, &(o_args));
+        }
+        else if (0 == snck_string_compare(&(o_cmd), &(o_name_umask)))
+        {
+            b_result = snck_builtin_umask(p_ctxt, &(o_args));
         }
         else
         {
